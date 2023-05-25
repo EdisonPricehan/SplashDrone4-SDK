@@ -32,6 +32,9 @@ devel_isolated/
 # qcreator stuff
 CMakeLists.txt.user
 
+# Ignore ros bags
+*.bag
+
 srv/_*.py
 *.pcd
 *.pyc
