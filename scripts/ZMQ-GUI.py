@@ -23,8 +23,8 @@ FORMAT_ACK = "=BBI"  # refer to definition in FlyStateReport.h
 # init all reports
 fly_report, battery_report, gimbal_report, ack = FlyReport(), BatteryReport(), GimbalReport(), Ack()
 
-# Set to True if only want to test GUI
-GUI_ONLY = False
+# Set to True if only want to test GUI without video stream
+GUI_ONLY = True
 
 
 def create_sub_and_connect(topic):
