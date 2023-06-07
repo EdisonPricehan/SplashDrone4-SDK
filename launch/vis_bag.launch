@@ -1,13 +1,16 @@
 <launch>
     <arg name="bag_name" default="static.bag" />
     <arg name="rate" default="5" />
+    <arg name="gps_topic" default="ublox/fix" />  <!-- gps -->
 
     <!--  start rosbag play node  -->
     <node name="visualize_rosbag" pkg="rosbag" type="play"
           args="-r $(arg rate) $(find splash_drone_ros)/bags/$(arg bag_name)" output="screen" />
 
     <!--  start message converter node  -->
-    <node name="odom" pkg="splash_drone_ros" type="Odom.py" output="screen" />
+    <node name="odom" pkg="splash_drone_ros" type="Odom.py" output="screen" >
+           <remap from="gps" to="$(arg gps_topic)" />
+    </node>
 
     <!--  start Rviz node  -->
     <node name="rivz" pkg="rviz" type="rviz" args="-d $(find splash_drone_ros)/config/test.rviz" />

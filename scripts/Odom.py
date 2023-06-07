@@ -16,8 +16,11 @@ poses = []
 
 def gps_callback(data):
     global ori_e, ori_n, ori_u
+    #TODO need to distinguish between gps data in different data structure (int v.s. float)
     easting, northing, zone_number, zone_letter = utm.from_latlon(latitude=data.latitude / 1e7,
                                                                   longitude=data.longitude / 1e7)
+    # easting, northing, zone_number, zone_letter = utm.from_latlon(latitude=data.latitude,
+    #                                                               longitude=data.longitude)
     if not ori_e or not ori_n or not ori_u:
         ori_e, ori_n, ori_u = easting, northing, data.altitude
 
