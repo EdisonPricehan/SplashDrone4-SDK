@@ -43,7 +43,7 @@ def report2wp(sub):
     return wp
 
 
-def forward_backward():
+def left_right():
     with zmq.Context() as context:
         # create publisher
         pub = context.socket(zmq.PUB)
@@ -99,6 +99,14 @@ def forward_backward():
         pub.send(wp.getPacked())
         sleep(1)
 
+        wp = WayPoint.from_cartesian(lly, x=0, y=-3, hover_time=5, act_now=False)
+        pub.send(wp.getPacked())
+        sleep(1)
+
+        wp = WayPoint.from_cartesian(lly, x=0, y=0, hover_time=5, act_now=False)
+        pub.send(wp.getPacked())
+        sleep(1)
+
         # land
         land = Land(act_now=False)
         pub.send(land.getPacked())
@@ -112,6 +120,82 @@ def forward_backward():
         print("Forward-backward sending finished!")
         return
 
+def forward_backward():
+    with zmq.Context() as context:
+        # create publisher
+        pub = context.socket(zmq.PUB)
+        pub.bind("tcp://*:5556")
+        print("Publisher created!")
+        sleep(1)
+
+        # create subscriber
+        sub = context.socket(zmq.SUB)
+        sub.setsockopt(zmq.SUBSCRIBE, TOPIC_FLY_REPORT.encode('ascii'))
+        sub.setsockopt(zmq.LINGER, 0)
+        # sub.setsockopt(zmq.CONFLATE, 1)
+        sub.connect("tcp://localhost:5555")
+        print("Subscriber connected!")
+        sleep(1)
+
+        # clear mission queue
+        clear_mq = ClearMissionQueue()
+        pub.send(clear_mq.getPacked())
+        sleep(1)
+
+        # takeoff
+        takeoff = TakeOff(height=1.0, act_now=False)
+        pub.send(takeoff.getPacked())
+        sleep(1)
+
+        # set speed
+        set_speed = SetSpeed(speed=0.5, act_now=False)
+        pub.send(set_speed.getPacked())
+        sleep(1)
+
+        # set altitude
+        set_alt = SetAlt(alt=2, act_now=False)
+        pub.send(set_alt.getPacked())
+        sleep(1)
+
+        # hover for some time
+        suspend_mq = SuspendMissionQueue(wait_time_s=5)
+        pub.send(suspend_mq.getPacked())
+        sleep(1)
+
+        # add forward waypoint
+        lly = report2wp(sub)  # blocking
+        while not lly:
+            sleep(0.5)
+            lly = report2wp(sub)
+        wp = WayPoint.from_cartesian(lly, x=3, y=0, hover_time=10, act_now=False)
+        pub.send(wp.getPacked())
+        sleep(1)
+
+        # add backward waypoint
+        wp = WayPoint.from_cartesian(lly, x=0, y=0, hover_time=10, act_now=False)
+        pub.send(wp.getPacked())
+        sleep(1)
+
+        wp = WayPoint.from_cartesian(lly, x=-3, y=0, hover_time=10, act_now=False)
+        pub.send(wp.getPacked())
+        sleep(1)
+
+        wp = WayPoint.from_cartesian(lly, x=0, y=0, hover_time=15, act_now=False)
+        pub.send(wp.getPacked())
+        sleep(1)
+
+        # land
+        land = Land(act_now=False)
+        pub.send(land.getPacked())
+        sleep(1)
+
+        # execute mission queue
+        exec_mq = ExecMissionQueue()
+        pub.send(exec_mq.getPacked())
+        sleep(1)
+
+        print("Forward-backward sending finished!")
+        return
 
 def wp_square():
     with zmq.Context() as context:
@@ -200,9 +284,10 @@ def wp_square():
 
 
 if __name__ == "__main__":
-    wp_square()
+    # wp_square()
 
-    # forward_backward()
+    forward_backward()
 
+    # left_right()
 
 
