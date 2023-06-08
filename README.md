@@ -12,3 +12,15 @@
 - [utm](https://pypi.org/project/utm/)
   
   `pip3 install utm`
+
+- [PySimpleGUI](https://pypi.org/project/PySimpleGUI/)
+  
+  `pip3 install PySimpleGUI`
+  
+- [Cryptodome]()
+  
+  `pip3 install pycryptodomex`
+  
+- [gnupg]()
+  
+  `pip3 install gnupg`
