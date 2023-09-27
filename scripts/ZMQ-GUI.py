@@ -1,13 +1,12 @@
-#!/usr/bin/python3
 import rospy
 import zmq
 import time
-import os
 
 from Definitions import *
 from GUI import *
 from ImageProcess import ImageProcessor
 from RosUtils import RosTopicRecorder
+from key2action import Key2Action
 
 STATES = ['standingby', 'takingoff', 'landing', 'rth']
 
@@ -25,6 +24,13 @@ fly_report, battery_report, gimbal_report, ack = FlyReport(), BatteryReport(), G
 
 # Set to True if only want to test GUI without video stream
 GUI_ONLY = True
+ENABLE_ROS = False
+
+# whether use keyboard to move the drone in 3D space
+ALLOW_KEYBOARD_CONTROL = True
+long_dist = 2
+lat_dist = 1
+vert_dist = 1
 
 
 def create_sub_and_connect(topic):
@@ -62,19 +68,19 @@ def update_window():
     if fly_report.updated:
         # print("Update fly report!")
         updateWindowFlyReport(fly_report)
-        fly_report.updated = False
+        # fly_report.updated = False
 
     # update battery report in gui
     if battery_report.updated:
         # print("Update battery report!")
         updateWindowBatteryReport(battery_report)
-        battery_report.updated = False
+        # battery_report.updated = False
 
     # update gimbal report in gui
     if gimbal_report.updated:
         # print("Update gimbal report!")
         updateWindowGimbalReport(gimbal_report)
-        gimbal_report.updated = False
+        # gimbal_report.updated = False
 
     # deal with ack
     if ack.updated:
@@ -96,15 +102,19 @@ if __name__ == '__main__':
     if not GUI_ONLY:
         img_proc.init()  # blocking operation until received image stream
 
+    # start keyboard listening thread
+    k2a = Key2Action() if ALLOW_KEYBOARD_CONTROL else None
+
     # record data to rosbag
-    record_rosbag = rospy.get_param("/ZMQ_GUI/record_bag")
-    publish_topic = rospy.get_param("/ZMQ_GUI/do_publish")
-    if record_rosbag:
-        print(f"Start recording rosbag ...")
-        if publish_topic:
-            print("Publish topics while recording ...")
-        recorder = RosTopicRecorder(publish=publish_topic)
-        time.sleep(1)
+    if ENABLE_ROS:
+        record_rosbag = rospy.get_param("/ZMQ_GUI/record_bag")
+        publish_topic = rospy.get_param("/ZMQ_GUI/do_publish")
+        if record_rosbag:
+            print(f"Start recording rosbag ...")
+            if publish_topic:
+                print("Publish topics while recording ...")
+            recorder = RosTopicRecorder(publish=publish_topic)
+            time.sleep(1)
 
     # Loop of zmq and gui
     with zmq.Context() as context:
@@ -149,8 +159,9 @@ if __name__ == '__main__':
                 rth = ReturnToHome()
 
                 # update rosbag
-                if record_rosbag and fly_report.updated:
-                    recorder.write_loc_att(fly_report)
+                if ENABLE_ROS:
+                    if record_rosbag and fly_report.updated:
+                        recorder.write_loc_att(fly_report)
 
                 # update window by fly reports if updated
                 update_window()
@@ -249,6 +260,39 @@ if __name__ == '__main__':
                     stop_mq = StopMissionQueue()
                     pub.send(stop_mq.getPacked())
 
+                # use keyboard to control Move3D
+                if k2a is not None:
+                    action = k2a.get_multi_discrete_action()
+                    x, y, z = 0, 0, 0
+                    intact = True
+                    if action[0] != 1:
+                        z = vert_dist if action[0] == 0 else -vert_dist
+                        intact = False
+                    if action[2] != 1:
+                        x = long_dist if action[2] == 0 else -long_dist
+                        intact = False
+                    if action[3] != 1:
+                        y = lat_dist if action[3] == 0 else -lat_dist
+                        intact = False
+                    if not intact:
+                        print(f'{action=}')
+                        if not fly_report.updated:
+                            print('Fly report has not been updated, try command again.')
+                        elif fly_report.GpsNum < 9:
+                            print(f'GPS number {fly_report.GpsNum} is not enough.')
+                        else:
+                            set_speed = SetSpeed(speed=6, act_now=True)
+                            pub.send(set_speed.getPacked())
+                            set_alt = SetAlt(alt=fly_report.Altitude + z, act_now=True)
+                            pub.send(set_alt.getPacked())
+                            cur_wp_with_yaw = WayPointWithYaw(fly_report.Lat / 1e7, fly_report.Lon / 1e7, fly_report.Altitude, fly_report.ATTYaw)
+                            wp = WayPoint.from_cartesian(cur_wp_with_yaw, x=x, y=y, z=z, hover_time=0, act_now=True)
+                            # move3d = Movement3D(x, y, z, hori_speed, vert_speed, act_now=True)
+                            # pub.send(move3d.getPacked())
+                            pub.send(wp.getPacked())
+                            fly_report.updated = False
+                            print(f'New waypoint sent!')
+
                 ## update all added waypoints in listbox
                 if event == '-SPEED_SET-':
                     set_speed = SetSpeed(speed=float(values['-SPEED-']))
@@ -321,7 +365,7 @@ if __name__ == '__main__':
                         window['-IMAGE-'].update(data=imgbytes)
 
                 # update rosbag
-                if record_rosbag:
+                if ENABLE_ROS and record_rosbag:
                     cv_image = img_proc.get_cv_img()
                     recorder.write_img(cv_image)
 
@@ -340,6 +384,6 @@ if __name__ == '__main__':
                     img_proc.release()
 
                 # close rosbag
-                if record_rosbag:
+                if ENABLE_ROS and record_rosbag:
                     recorder.close()
                     print(f"Rosbag recording finished.")

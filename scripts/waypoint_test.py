@@ -39,7 +39,7 @@ def report2wp(sub):
 
     wp = WayPointWithYaw(fly_report.Lat / 1e7, fly_report.Lon / 1e7, fly_report.ATTYaw)
     # print(wp)
-    fly_report.inited = False
+    fly_report.updated = False
     return wp
 
 

@@ -16,7 +16,7 @@ def move3d_square():
         sleep(1)
 
         # takeoff
-        takeoff = TakeOff(height=1.0, act_now=False)
+        takeoff = TakeOff(height=2.0, act_now=False)
         pub.send(takeoff.getPacked())
         sleep(1)
 
@@ -67,7 +67,7 @@ def move3d_single_act():
         sleep(10)
 
         # move3d 1
-        move3d = Movement3D(x=10, y=0, z=0, hs=1, vs=1, act_now=True)
+        move3d = Movement3D(x=3, y=0, z=0, hs=1, vs=1, act_now=True)
         pub.send(move3d.getPacked())
         print("Move3d sent!")
         sleep(10)

@@ -43,7 +43,7 @@ def report2wp(sub):
 
     wp = WayPointWithYaw(fly_report.Lat / 1e7, fly_report.Lon / 1e7, fly_report.ATTYaw)
     # print(wp)
-    fly_report.inited = False
+    fly_report.updated = False
     return wp
 
 
@@ -58,7 +58,7 @@ def report2ros_gps(zmq_sub, ros_pub):
     drone_gps.longitude = fly_report.Lon / 1e7  # degrees
     drone_gps.altitude = fly_report.Altitude  # meters
     ros_pub.publish(drone_gps)
-    fly_report.inited = False
+    fly_report.updated = False
 
 
 class FollowMe:
