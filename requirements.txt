@@ -1,0 +1,6 @@
+opencv_python==4.11.0.86
+pynput==1.8.1
+PySimpleGUI==5.0.10
+pyzmq==26.4.0
+utm==0.8.1
+transforms3d==0.4.2

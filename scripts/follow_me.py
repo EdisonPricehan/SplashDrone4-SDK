@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from Definitions import *
+from definitions import *
 
 import zmq
 from time import sleep
@@ -10,7 +10,7 @@ from sensor_msgs.msg import NavSatFix
 
 fly_report = FlyReport()
 
-FORMAT_FLY_REPORT = "3hHhH3hH4i2Bb3BH"  # refer to definition in FlyStateReport.h
+FORMAT_FLY_REPORT = "3hHhH3hH4i2Bb3BH"  # refer to definition in fly_state_report.h
 
 
 def update_report(sub):

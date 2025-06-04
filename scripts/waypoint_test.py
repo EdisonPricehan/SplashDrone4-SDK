@@ -1,10 +1,10 @@
-from Definitions import *
+from definitions import *
 
 import zmq
 from time import sleep
 
 
-FORMAT_FLY_REPORT = "3hHhH3hH4i2Bb3BH"  # refer to definition in FlyStateReport.h
+FORMAT_FLY_REPORT = "3hHhH3hH4i2Bb3BH"  # refer to definition in fly_state_report.h
 
 
 fly_report = FlyReport()
