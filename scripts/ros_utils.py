@@ -8,7 +8,7 @@ from sensor_msgs.msg import Imu, NavSatFix, Image
 from geometry_msgs.msg import Quaternion
 from cv_bridge import CvBridge, CvBridgeError
 
-from Definitions import FlyReport, GimbalReport, deg2rad
+from definitions import FlyReport, GimbalReport, deg2rad
 
 
 def create_ros_header(ref_frame: str = "map") -> Header:

@@ -1,6 +1,20 @@
+// tcp_client.cpp: Executable that communicates with the controller of
+// Splashdrone 4 using TCP/IP, then relays data between TCP and ZMQ.
+// Copyright (C) <2025>  <Zihan Wang>
 //
-// Created by princ on 2022/7/22.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 
 #define WIN32_LEAN_AND_MEAN
 
@@ -29,7 +43,7 @@
 #include <cstring>
 #include <sstream>
 
-#include "Controls.h"
+#include "controls.h"
 
 #include "zmq.h"
 

@@ -1,21 +1,21 @@
 <launch>
     <arg name="tcp_address" default="192.168.2.1" />
-    <arg name="record_bag" default="true" />
-    <arg name="do_publish" default="true" />  <!-- Used only when record_bag is true --> 
+    <arg name="record_bag" default="false" />
+    <arg name="do_publish" default="false" />  <!-- Used only when record_bag is true -->
 
     <!--  start tcp client node  -->
-    <node name="tcp_client" pkg="splash_drone_ros" type="tcp_client" args="$(arg tcp_address)" output="screen" />
+    <node name="tcp_client" pkg="splash_drone" type="tcp_client" args="$(arg tcp_address)" output="screen" />
 
     <!--  start gui node  -->
-    <node name="ZMQ_GUI" pkg="splash_drone_ros" type="ZMQ-GUI.py" output="screen">
+    <node name="ZMQ_GUI" pkg="splash_drone" type="zmq_gui.py" output="screen">
         <param name="record_bag" value="$(arg record_bag)" />
         <param name="do_publish" value="$(arg do_publish)" />
     </node>
     
     <!-- enable message converter node and Rivz node if do_publish -->
     <group if="$(arg do_publish)">
-        <node name="odom" pkg="splash_drone_ros" type="Odom.py" output="screen" />
-        <node name="rivz" pkg="rviz" type="rviz" args="-d $(find splash_drone_ros)/config/test.rviz" />
+        <node name="odom" pkg="splash_drone" type="odom.py" output="screen" />
+        <node name="rivz" pkg="rviz" type="rviz" args="-d $(find splash_drone)/config/test.rviz" />
     </group>
 
 </launch>

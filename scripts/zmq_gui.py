@@ -1,33 +1,35 @@
+#!/usr/bin/env python3
+
 import rospy
 import zmq
 import time
 
-from Definitions import *
-from GUI import *
-from ImageProcess import ImageProcessor
-from RosUtils import RosTopicRecorder
+from definitions import *
+from gui import *
+from image_processor import ImageProcessor
+from ros_utils import RosTopicRecorder
 from key2action import Key2Action
 
 STATES = ['standingby', 'takingoff', 'landing', 'rth']
 
 ZMQ_SUB_ADDR = "tcp://localhost:5555"
 
-# formats of received reports
-FORMAT_FLY_REPORT = "3hHhH3hH4i2Bb3BH"  # refer to definition in FlyStateReport.h
-FORMAT_BATTERY_REPORT = "3HBb4Bi"  # refer to definition in BatteryInfo.h
-FORMAT_GIMBAL_REPORT = "3f"  # refer to definition in Gimbal.h
-FORMAT_NAV_REPORT = "6BHh2i"  # refer to definition in NavStateReport.h
-FORMAT_ACK = "=BBI"  # refer to definition in FlyStateReport.h
+# Formats of received reports
+FORMAT_FLY_REPORT = "3hHhH3hH4i2Bb3BH"  # refer to definition in fly_state_report.h
+FORMAT_BATTERY_REPORT = "3HBb4Bi"  # refer to definition in battery_info.h
+FORMAT_GIMBAL_REPORT = "3f"  # refer to definition in gimbal.h
+FORMAT_NAV_REPORT = "6BHh2i"  # refer to definition in nav_state_report.h
+FORMAT_ACK = "=BBI"  # refer to definition in fly_state_report.h
 
-# init all reports
+# Init all reports
 fly_report, battery_report, gimbal_report, ack = FlyReport(), BatteryReport(), GimbalReport(), Ack()
 
 # Set to True if only want to test GUI without video stream
-GUI_ONLY = True
+GUI_ONLY = False
 ENABLE_ROS = False
 
-# whether use keyboard to move the drone in 3D space
-ALLOW_KEYBOARD_CONTROL = True
+# Whether use keyboard to move the drone in 3D space
+ALLOW_KEYBOARD_CONTROL = False
 long_dist = 2
 lat_dist = 1
 vert_dist = 1

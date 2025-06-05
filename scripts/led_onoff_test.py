@@ -1,4 +1,4 @@
-from Definitions import *
+from definitions import *
 
 import zmq
 from time import sleep

@@ -2,7 +2,7 @@
 import time
 import cv2
 
-from FreshestFrame import FreshestFrame
+from freshest_frame import FreshestFrame
 
 # constant rtsp address
 RTSP_ADDR = "rtsp://192.168.2.220:554"  # https://support.swellpro.com/hc/en-us/articles/5890485717017-SplashDrone-4-SDK

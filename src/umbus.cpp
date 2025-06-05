@@ -2,9 +2,9 @@
   Micro message communication bus protocol
 */
 
-#include "UMBUS.h"
-#include "Definitions.h"
-#include "CRC.h"
+#include "umbus.h"
+#include "definitions.h"
+#include "crc.h"
 
 #include <iostream>
 #include <cstring>

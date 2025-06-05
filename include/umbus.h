@@ -1,8 +1,21 @@
-/*
-Micro message communication bus protocol
-[STAR][LENGTH][MsgID][SRC][DEST][DATA][CRC]
-[STAR][LENGTH][MsgID][DATA][CHECKSUM]
-*/
+// umbus.h: Micro message communication bus protocol.
+// [STAR][LENGTH][MsgID][SRC][DEST][DATA][CRC]
+// [STAR][LENGTH][MsgID][DATA][CHECKSUM]
+// Copyright (C) <2025>  <Zihan Wang>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 
 #pragma once
 
@@ -12,12 +25,12 @@ extern "C" {
 
 #include <cstdint>
 
-#include "FlyStateReport.h"
-#include "NavStateReport.h"
-#include "BatteryInfo.h"
-#include "Gimbal.h"
-#include "DeviceInfo.h"
-#include "FC-Setting.h"
+#include "fly_state_report.h"
+#include "nav_state_report.h"
+#include "battery_info.h"
+#include "gimbal.h"
+#include "device_info.h"
+#include "fc_setting.h"
 
 #define UMBUS_OK              0
 #define UMBUS_NOMARK          1

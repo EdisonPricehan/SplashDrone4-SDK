@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(splash_drone_ros)
+cmake_minimum_required(VERSION 3.5)
+project(splash_drone)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
@@ -8,7 +8,6 @@ add_compile_options(-std=c++11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-#  roscpp
   rospy
   std_msgs
 )
@@ -104,8 +103,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES splash_drone_ros
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+#  LIBRARIES splash_drone
+#  CATKIN_DEPENDS rospy std_msgs
 #  DEPENDS zmq
 )
 
@@ -135,7 +134,7 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/splash_drone_ros_node.cpp)
 
-add_executable(tcp_client src/TCP_Client.cpp src/UMBUS.cpp)
+add_executable(tcp_client src/tcp_client.cpp src/umbus.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
