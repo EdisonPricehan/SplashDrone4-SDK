@@ -88,27 +88,30 @@ class ZmqGui(Node):
                 time.sleep(1)
 
     def update_window(self):
-        # update fly report in gui
+        """
+        Update the GUI window with the latest reports.
+        """
+        # Update fly report in gui
         if self.fly_report.updated:
-            # print("Update fly report!")
+            # self.get_logger().info("Update fly report!")
             updateWindowFlyReport(self.fly_report)
             # fly_report.updated = False
 
-        # update battery report in gui
+        # Update battery report in gui
         if self.battery_report.updated:
-            # print("Update battery report!")
+            # self.get_logger().info("Update battery report!")
             updateWindowBatteryReport(self.battery_report)
             # battery_report.updated = False
 
-        # update gimbal report in gui
+        # Update gimbal report in gui
         if self.gimbal_report.updated:
-            # print("Update gimbal report!")
+            # self.get_logger().info("Update gimbal report!")
             updateWindowGimbalReport(self.gimbal_report)
             # gimbal_report.updated = False
 
-        # deal with ack
+        # Deal with ack
         if self.ack.updated:
-            print(f"Ack received: {self.ack.mission_id=} {self.ack.mission_type=} {self.ack.mission_data=}")
+            self.get_logger().info(f"Ack received: {self.ack.mission_id=} {self.ack.mission_type=} {self.ack.mission_data=}")
             # TODO deal with ack
             self.ack.updated = False
 
@@ -118,18 +121,18 @@ class ZmqGui(Node):
                 binary_topic, data_buffer = sub.recv(zmq.DONTWAIT).split(b' ', 1)
                 topic = binary_topic.decode(encoding='ascii')
                 if topic == k:
-                    # print(f"{topic=}")
+                    # self.get_logger().info(f"{topic=}")
                     report_tuple = struct.unpack(fmt, data_buffer)
-                    # print(f"{report_tuple=}")
+                    # self.get_logger().info(f"{report_tuple=}")
                     report.update(report_tuple)
-                    # print(f"{report.updated}")
+                    # self.get_logger().info(f"{report.updated}")
                 else:
-                    print("Topic name mismatched!")
+                    self.get_logger().warn("Topic name mismatched!")
             except zmq.ZMQError as e:
                 if e.errno == zmq.EAGAIN:
                     pass  # no message was ready (yet!)
                 else:
-                    print(str(e))
+                    self.get_logger().error(str(e))
 
     def create_sub_and_connect(self, context, topic):
         sub = context.socket(zmq.SUB)
@@ -137,7 +140,7 @@ class ZmqGui(Node):
         sub.setsockopt(zmq.LINGER, 0)
         # sub.setsockopt(zmq.CONFLATE, 1)
         sub.connect(self.ZMQ_SUB_ADDR)
-        print(f"Sub to {topic} connected!")
+        self.get_logger().info(f"Sub to {topic} connected!")
         return sub
 
     def keyboard_control(self, pub):
@@ -353,7 +356,7 @@ class ZmqGui(Node):
                         pub.send(wp.getPacked())
                     elif event == '-EXEC_WP-':
                         if len(mission_waypoints) == 0:
-                            print("No waypoints to execute!")
+                            self.get_logger().warn("No waypoints to execute!")
                         else:
                             # end sending to mission queue
                             pub.send(SendMissionQueueEnd().getPacked())
@@ -362,7 +365,7 @@ class ZmqGui(Node):
                     elif event == '-SUSPEND_WP-':
                         suspend_time = float(values['-SUSPEND_TIME_WP-'])
                         if suspend_time < 0.01:
-                            print(f"Mission suspension time should be at least 10 ms!")
+                            self.get_logger().warn(f"Mission suspension time should be at least 10 ms!")
                             suspend_time = 0.01
                         mission_waypoints.append(suspend_time)
                         window['-LIST_WP-'].update(mission_waypoints)
@@ -389,8 +392,8 @@ class ZmqGui(Node):
                         pub.send(rth.getPacked())
                     elif values['-STANDBY-']:
                         cur_state = self.STATES[0]
-                        # print("Standby!")
-                        # TODO
+                        self.get_logger().info("Standby!")
+                        # TODO send standby command to drone
 
                     self.keyboard_control(pub=pub)
 
