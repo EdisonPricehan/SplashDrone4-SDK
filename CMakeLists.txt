@@ -28,6 +28,12 @@ add_executable(tcp_client_ros2
   src/umbus.cpp
 )
 
+# add executable
+add_executable(tcp_client
+  src/tcp_client.cpp
+  src/umbus.cpp
+)
+
 # link in dependencies for ros2 node of tcp_client_ros2
 ament_target_dependencies(tcp_client_ros2
   rclcpp
@@ -38,9 +44,15 @@ ament_target_dependencies(tcp_client_ros2
 target_link_libraries(tcp_client_ros2
   ${ZMQ_LIBRARIES}
 )
+target_link_libraries(tcp_client
+  ${ZMQ_LIBRARIES}
+)
 
 # install node
 install(TARGETS tcp_client_ros2
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS tcp_client
   DESTINATION lib/${PROJECT_NAME}
 )
 

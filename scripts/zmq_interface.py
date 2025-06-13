@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-import cv2
+
 # System packages
+import os
+import cv2
 import zmq
 import time
 import numpy as np
 from typing import Optional, List, Union, Tuple
 from loguru import logger
+import subprocess
 
 # Local packages
 from definitions import *
-from gui import *
 from constants import *
 from image_processor import ImageProcessor
 from key2action import Key2Action
@@ -26,6 +28,14 @@ class ZmqInterface:
             hori_speed: float = 1.,
             vert_speed: float = 0.5,
     ):
+        # Init TCP communication process
+        tcp_client_path = '/home/orin-nano/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
+        assert os.path.exists(tcp_client_path), (f'TCP client path {tcp_client_path} does not exist, '
+                                                 f'make sure you have built the ROS2 package using '
+                                                 f'"colcon build --symlink-install"!')
+        self.tcp_client_process = subprocess.Popen(['/home/orin-nano/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client', '192.168.2.1'])
+        logger.info('TCP client process started.')
+
         # Init all reports (received from drone)
         self.fly_report = FlyReport()
         self.battery_report = BatteryReport()
@@ -53,22 +63,26 @@ class ZmqInterface:
         # Init image processor
         self.img_proc = ImageProcessor()
         self.img_proc.init()  # blocking operation until received image stream
+        logger.info('Image processor initialized and ready to receive images.')
 
         # Start keyboard listening thread
         self.k2a = Key2Action() if enable_keyboard_control else None
 
         # Create ZMQ context
         self.context = zmq.Context()
+        logger.info('ZMQ context created!')
 
         # Init ZMQ publisher
         self.pub = self.context.socket(zmq.PUB)
         self.pub.bind(ZMQ_PUB_ADDR)
+        logger.info(f'ZMQ publisher bound to {ZMQ_PUB_ADDR}!')
 
         # Init ZMQ subscribers
         self.sub1 = self.create_sub_and_connect(TOPIC_FLY_REPORT)
         self.sub2 = self.create_sub_and_connect(TOPIC_BATTERY_REPORT)
         self.sub3 = self.create_sub_and_connect(TOPIC_GIMBAL_REPORT)
         self.sub4 = self.create_sub_and_connect(TOPIC_ACK)
+        logger.info('ZMQ subscribers created and connected!')
 
         # Create mapping from topic name to tuple (format, sub socket, report variable)
         self.topic2tuple = {TOPIC_FLY_REPORT: (FORMAT_FLY_REPORT, self.sub1, self.fly_report),
@@ -277,16 +291,57 @@ class ZmqInterface:
                     f"Pitch={self.gimbal_control.pitch}, "
                     f"Yaw={self.gimbal_control.yaw}.")
 
+    def close(self):
+        # Terminate tcp_client process
+        if hasattr(self, 'tcp_client_process') and self.tcp_client_process.poll() is None:
+            self.tcp_client_process.terminate()
+            self.tcp_client_process.wait()
+            logger.info('TCP client process terminated.')
+
+        # Close ZMQ sockets
+        for sub in [self.sub1, self.sub2, self.sub3, self.sub4]:
+            sub.close()
+        self.pub.close()
+        self.context.term()
+        logger.info('ZMQ sockets closed and context terminated.')
+
+        # Close image processor
+        self.img_proc.release()
+        logger.info('Image processor closed.')
+
+        # Stop threads if any (e.g., self.k2a)
+        if self.k2a is not None:
+            self.k2a.listener.stop()
+            logger.info('Keyboard control thread stopped.')
+
+    def __del__(self):
+        self.close()
+
 
 if __name__ == '__main__':
-    # Test image
     zmq_interface = ZmqInterface(enable_keyboard_control=True)
-    i = 0
-    while i < 1000:
-        img = zmq_interface.get_img()
-        cv2.imshow('Image', img)
-        cv2.waitKey(10)
-        i += 1
 
+    # Test image
+    # try:
+    #     i = 0
+    #     while i < 1000:
+    #         img = zmq_interface.get_img()
+    #         cv2.imshow('Image', img)
+    #         cv2.waitKey(10)
+    #         i += 1
+    # except KeyboardInterrupt:
+    #     logger.info("Keyboard interrupt received.")
+    #     zmq_interface.close()
 
-
+    # Test external devices
+    try:
+        while True:
+            zmq_interface.set_ext_dev(plr1_on=False, plr2_on=False, strobe_light_on=True, arm_light_on=True)
+            logger.info("Strobe light and arm light turned on for 3 seconds.")
+            time.sleep(3)
+            zmq_interface.set_ext_dev(plr1_on=False, plr2_on=False, strobe_light_on=False, arm_light_on=False)
+            logger.info("Strobe light and arm light turned off for 3 seconds.")
+            time.sleep(3)
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received.")
+        zmq_interface.close()
