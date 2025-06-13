@@ -4,3 +4,4 @@ PySimpleGUI==5.0.10
 pyzmq==26.4.0
 utm==0.8.1
 transforms3d==0.4.2
+loguru==0.7.3
