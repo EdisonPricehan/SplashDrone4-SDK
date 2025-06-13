@@ -2,6 +2,7 @@ import struct
 import ctypes
 import utm
 import math
+from loguru import logger
 
 # topics to subscribe to
 TOPIC_FLY_REPORT = "topic_fly_report"
@@ -52,7 +53,7 @@ def normalize(rad):
 class FlyReport:
     def __init__(self, report_tuple: tuple = ()):
         if len(report_tuple) == 0:
-            print("Empty fly report tuple!")
+            logger.debug("Empty fly report tuple!")
             self.updated = False
         else:
             assert len(report_tuple) == 21, "Fly report tuple wrong size!"
@@ -85,7 +86,7 @@ class FlyReport:
 class NavReport:
     def __init__(self, report_tuple: tuple = ()):
         if len(report_tuple) == 0:
-            print("Empty fly report tuple!")
+            logger.debug("Empty fly report tuple!")
             self.updated = False
         else:
             assert len(report_tuple) == 21, "Fly report tuple wrong size!"
@@ -108,7 +109,7 @@ class NavReport:
 class BatteryReport:
     def __init__(self, report_tuple: tuple = ()):
         if len(report_tuple) == 0:
-            print("Empty battery report tuple!")
+            logger.debug("Empty battery report tuple!")
             self.updated = False
         else:
             assert len(report_tuple) == 10, "Battery report tuple wrong size!"
@@ -129,7 +130,7 @@ class BatteryReport:
 class GimbalReport:
     def __init__(self, report_tuple: tuple = ()):
         if len(report_tuple) == 0:
-            print("Empty gimbal report tuple!")
+            logger.debug("Empty gimbal report tuple!")
             self.updated = False
         else:
             assert len(report_tuple) == 3, "Battery report tuple wrong size!"
@@ -146,7 +147,7 @@ class GimbalReport:
 class Ack:
     def __init__(self, ack_tuple: tuple = ()):
         if len(ack_tuple) == 0:
-            print("Empty ACK tuple!")
+            logger.debug("Empty ACK tuple!")
             self.updated = False
         else:
             assert len(ack_tuple) == 3, "Ack tuple wrong size!"
@@ -195,7 +196,7 @@ class ExtDevOnOff(Base):
 
         # buf_str = str(buffer.value).encode('ascii')
         buf_str = buffer.raw
-        print(f'[ExtDevOnOff] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[ExtDevOnOff] Buf size: {len(buffer)}, content: {buf_str}')
         # un = struct.unpack('22s4?', buffer)
         # print(f'unpacked {un}')
         return buf_str
@@ -218,7 +219,7 @@ class CameraControl(Base):
         struct.pack_into('?', buffer, topic_len + 2, self.record)
         struct.pack_into('?', buffer, topic_len + 3, self.act_now)
         buf_str = buffer.raw
-        print(f'[Camera Control] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Camera Control] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -238,7 +239,7 @@ class TakeOff(Base):
         struct.pack_into('f', buffer, topic_len + 1, self.height)
         struct.pack_into('?', buffer, topic_len + 5, self.act_now)
         buf_str = buffer.raw
-        print(f'[TakeOff] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[TakeOff] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -257,7 +258,7 @@ class SetSpeed(Base):
         struct.pack_into('f', buffer, topic_len + 1, self.speed)
         struct.pack_into('?', buffer, topic_len + 5, self.act_now)
         buf_str = buffer.raw
-        print(f'[Set Speed] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Set Speed] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -276,7 +277,7 @@ class SetAlt(Base):
         struct.pack_into('f', buffer, topic_len + 1, self.alt)
         struct.pack_into('?', buffer, topic_len + 5, self.act_now)
         buf_str = buffer.raw
-        print(f'[Set Altitude] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Set Altitude] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -293,7 +294,7 @@ class Land(Base):
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         struct.pack_into('?', buffer, topic_len + 1, self.act_now)
         buf_str = buffer.raw
-        print(f'[Land] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Land] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -310,7 +311,7 @@ class ReturnToHome(Base):
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         struct.pack_into('?', buffer, topic_len + 1, self.act_now)
         buf_str = buffer.raw
-        print(f'[RTH] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[RTH] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -334,7 +335,7 @@ class Movement3D(Base):
         struct.pack_into('f', buffer, topic_len + 1 + 16, self.vs)
         struct.pack_into('?', buffer, topic_len + 1 + 20, self.act_now)
         buf_str = buffer.raw
-        print(f'[Movement3D] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Movement3D] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -378,7 +379,7 @@ class WayPoint(Base, WayPointBase):
         struct.pack_into('H', buffer, topic_len + 1 + 8, self.ht)
         struct.pack_into('?', buffer, topic_len + 1 + 10, self.act_now)
         buf_str = buffer.raw
-        print(f'[Waypoint] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Waypoint] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -401,7 +402,7 @@ class GimbalControl(Base):
         struct.pack_into('h', buffer, topic_len + 1 + 4, self.yaw)
         struct.pack_into('?', buffer, topic_len + 1 + 6, self.act_now)
         buf_str = buffer.raw
-        print(f'[GimbalControl] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[GimbalControl] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -416,7 +417,7 @@ class ClearMissionQueue:
                          self.topic.encode('ascii'))  # pack topic string into buffer
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         buf_str = buffer.raw
-        print(f'[Clear mq] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Clear mq] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -431,7 +432,7 @@ class SendMissionQueueStart:
                          self.topic.encode('ascii'))  # pack topic string into buffer
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         buf_str = buffer.raw
-        print(f'[Start send to mq] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Start send to mq] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -446,7 +447,7 @@ class SendMissionQueueEnd:
                          self.topic.encode('ascii'))  # pack topic string into buffer
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         buf_str = buffer.raw
-        print(f'[End send to mq] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[End send to mq] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -461,7 +462,7 @@ class ExecMissionQueue:
                          self.topic.encode('ascii'))  # pack topic string into buffer
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         buf_str = buffer.raw
-        print(f'[Exec mq] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Exec mq] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -476,7 +477,7 @@ class StopMissionQueue:
                          self.topic.encode('ascii'))  # pack topic string into buffer
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         buf_str = buffer.raw
-        print(f'[Stop mq] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Stop mq] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -493,7 +494,7 @@ class SuspendMissionQueue:
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         struct.pack_into('f', buffer, topic_len + 1, self.wait_time_s)
         buf_str = buffer.raw
-        print(f'[Suspend mq] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Suspend mq] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
 
@@ -510,6 +511,6 @@ class ReplayMissionQueue:
         struct.pack_into('c', buffer, topic_len, ' '.encode('ascii'))  # pack empty space after topic
         struct.pack_into('H', buffer, topic_len + 1, self.rt)
         buf_str = buffer.raw
-        print(f'[Replay mq] Buf size: {len(buffer)}, content: {buf_str}')
+        logger.debug(f'[Replay mq] Buf size: {len(buffer)}, content: {buf_str}')
         return buf_str
 
