@@ -12,6 +12,7 @@ from typing import Optional
 # Local packages
 from definitions import *
 from gui import *
+from constants import *
 from image_processor import ImageProcessor
 from bag_recorder import BagRecorder
 from key2action import Key2Action
@@ -20,15 +21,6 @@ from key2action import Key2Action
 class ZmqGui(Node):
     # Finite states of drone
     STATES = ['standingby', 'takingoff', 'landing', 'rth']
-
-    ZMQ_SUB_ADDR = "tcp://localhost:5555"
-
-    # Formats of received reports
-    FORMAT_FLY_REPORT = "3hHhH3hH4i2Bb3BH"  # refer to definition in fly_state_report.h
-    FORMAT_BATTERY_REPORT = "3HBb4Bi"  # refer to definition in battery_info.h
-    FORMAT_GIMBAL_REPORT = "3f"  # refer to definition in gimbal.h
-    FORMAT_NAV_REPORT = "6BHh2i"  # refer to definition in nav_state_report.h
-    FORMAT_ACK = "=BBI"  # refer to definition in fly_state_report.h
 
     def __init__(
             self,
@@ -185,7 +177,7 @@ class ZmqGui(Node):
         with zmq.Context() as context:
             # Use PUB socket to publish control commands
             pub = context.socket(zmq.PUB)
-            pub.bind("tcp://*:5556")
+            pub.bind(ZMQ_PUB_ADDR)
 
             # Use SUB socket to receive fly report, battery report, gimbal report, etc
             # Set different topic filters for different subscribers
@@ -195,10 +187,10 @@ class ZmqGui(Node):
             sub4 = self.create_sub_and_connect(context, TOPIC_ACK)
 
             # Create mapping from topic name to tuple (format, sub socket, report variable)
-            topic2tuple = {TOPIC_FLY_REPORT: (self.FORMAT_FLY_REPORT, sub1, self.fly_report),
-                           TOPIC_BATTERY_REPORT: (self.FORMAT_BATTERY_REPORT, sub2, self.battery_report),
-                           TOPIC_GIMBAL_REPORT: (self.FORMAT_GIMBAL_REPORT, sub3, self.gimbal_report),
-                           TOPIC_ACK: (self.FORMAT_ACK, sub4, self.ack)}
+            topic2tuple = {TOPIC_FLY_REPORT: (FORMAT_FLY_REPORT, sub1, self.fly_report),
+                           TOPIC_BATTERY_REPORT: (FORMAT_BATTERY_REPORT, sub2, self.battery_report),
+                           TOPIC_GIMBAL_REPORT: (FORMAT_GIMBAL_REPORT, sub3, self.gimbal_report),
+                           TOPIC_ACK: (FORMAT_ACK, sub4, self.ack)}
 
             # Main loop
             cur_state = self.STATES[0]  # standingby by default

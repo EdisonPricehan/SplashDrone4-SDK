@@ -1,4 +1,3 @@
-
 import threading
 
 
@@ -45,7 +44,7 @@ class FreshestFrame(threading.Thread):
             counter += 1
 
             # publish the frame
-            with self.cond: # lock the condition for this operation
+            with self.cond:  # lock the condition for this operation
                 self.frame = img if rv else None
                 self.latestnum = counter
                 self.cond.notify_all()
