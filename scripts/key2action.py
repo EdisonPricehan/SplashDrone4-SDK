@@ -1,5 +1,7 @@
 from pynput import keyboard
+from typing import Optional, List
 import random
+from loguru import logger as log
 
 
 class Key2Action:
@@ -13,20 +15,62 @@ class Key2Action:
             pass
             # print('alphanumeric key {0} pressed'.format(key.char))
         except AttributeError:
-            print('special key {0} pressed'.format(key))
+            log.error('special key {0} pressed'.format(key))
 
     def on_release(self, key):
         # print('{0} released'.format(key))
         if key == keyboard.Key.esc:
-            # Stop listener
-            return False
-        self.last_key = key.char
+            return  # Stop listener
 
-    def get_multi_discrete_action(self):
-        action = [1] * 4
+        try:
+            self.last_key = key.char
+            log.info(f'Key pressed: {self.last_key}')
+        except AttributeError:
+            if key in [keyboard.Key.left, keyboard.Key.right, keyboard.Key.up, keyboard.Key.down]:
+                self.last_key = str(key)  # e.g., 'Key.left'
+                # print(f'{self.last_key=}')
+            elif key == keyboard.Key.space:
+                self.last_key = 'space'
+            else:
+                self.last_key = None
+
+    def get_arrow_key(self) -> Optional[str]:
         if self.last_key is None:
-            return action
+            return None
 
+        arrow = None
+        if self.last_key == 'Key.up':
+            arrow = 'up'
+        elif self.last_key == 'Key.down':
+            arrow = 'down'
+        elif self.last_key == 'Key.left':
+            arrow = 'left'
+        elif self.last_key == 'Key.right':
+            arrow = 'right'
+        else:
+            log.debug(f'Unrecognized key {self.last_key} when getting arrow key')
+
+        if arrow is not None:
+            self.last_key = None
+
+        return arrow
+
+    def get_space_key(self) -> Optional[str]:
+        if self.last_key is None:
+            return None
+
+        if self.last_key == 'space':
+            self.last_key = None
+            return 'space'
+        else:
+            log.debug(f'Unrecognized key {self.last_key} when getting space key')
+            return None
+
+    def get_multi_discrete_action(self) -> Optional[List[int]]:
+        if self.last_key is None:
+            return None
+
+        action = [1] * 4  # [up-down, yaw, forward-backward, left-right]
         if self.last_key == 'w':
             action[0] = 0
         elif self.last_key == 's':
@@ -44,16 +88,19 @@ class Key2Action:
         elif self.last_key == 'l':
             action[3] = 2
         else:
-            print(f'Unrecognized key {self.last_key}')
+            log.debug(f'Unrecognized key {self.last_key} when getting multi-discrete action')
+            action = None
 
-        self.last_key = None
+        if action is not None:
+            self.last_key = None
+
         return action
 
-    def get_discrete_action(self):
-        action = 0
+    def get_discrete_action(self) -> Optional[int]:
         if self.last_key is None:
-            return [action]
+            return None
 
+        action = None
         if self.last_key == 'w':
             action = 1
         elif self.last_key == 's':
@@ -71,10 +118,12 @@ class Key2Action:
         elif self.last_key == 'l':
             action = 8
         else:
-            print(f'Unrecognized key {self.last_key}')
+            log.debug(f'Unrecognized key {self.last_key} when getting discrete action')
 
-        self.last_key = None
-        return [action]
+        if action is not None:
+            self.last_key = None
+
+        return action
 
     def get_random_action(self, multi_discrete: bool = False):
         if multi_discrete:  # one-hot
@@ -85,6 +134,9 @@ class Key2Action:
             return action
         else:
             return [random.randint(0, 8)]
+
+    def stop(self):
+        self.listener.stop()
 
 
 if __name__ == '__main__':
@@ -98,6 +150,14 @@ if __name__ == '__main__':
     #         on_release=on_release) as listener:
     #     listener.join()
 
+    import time
     k2a = Key2Action()
+    try:
+        while True:
+            arrow_key = k2a.get_arrow_key()
+            print(f'Arrow key pressed: {arrow_key}')
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        k2a.stop()
 
 

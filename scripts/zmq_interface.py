@@ -20,7 +20,6 @@ from key2action import Key2Action
 class ZmqInterface:
     def __init__(
             self,
-            enable_keyboard_control: bool = False,
             long_dist: float = 2.,
             lat_dist: float = 1.,
             vert_dist: float = 1.,
@@ -28,11 +27,21 @@ class ZmqInterface:
             hori_speed: float = 1.,
             vert_speed: float = 0.5,
     ):
+        """
+        Initialize the ZMQ interface for communication with the SplashDrone4.
+        :param long_dist: longitudinal distance for movement in meters.
+        :param lat_dist: lateral distance for movement in meters.
+        :param vert_dist: vertical distance for movement in meters.
+        :param yaw_angle: yaw angle for rotation in degrees.
+        :param hori_speed: horizontal speed for movement in meters per second.
+        :param vert_speed: vertical speed for movement in meters per second.
+        """
         # Init TCP communication process
         tcp_client_path = '/home/orin-nano/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
         assert os.path.exists(tcp_client_path), (f'TCP client path {tcp_client_path} does not exist, '
                                                  f'make sure you have built the ROS2 package using '
                                                  f'"colcon build --symlink-install"!')
+        # Change the tcp_client_path to the actual path of the tcp_client executable
         self.tcp_client_process = subprocess.Popen(['/home/orin-nano/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client', '192.168.2.1'])
         logger.info('TCP client process started.')
 
@@ -47,7 +56,6 @@ class ZmqInterface:
         self.gimbal_control = GimbalControl()
 
         # Init constants
-        self.enable_keyboard_control = enable_keyboard_control
         self.long_dist = long_dist
         self.lat_dist = lat_dist
         self.vert_dist = vert_dist
@@ -64,9 +72,6 @@ class ZmqInterface:
         self.img_proc = ImageProcessor()
         self.img_proc.init()  # blocking operation until received image stream
         logger.info('Image processor initialized and ready to receive images.')
-
-        # Start keyboard listening thread
-        self.k2a = Key2Action() if enable_keyboard_control else None
 
         # Create ZMQ context
         self.context = zmq.Context()
@@ -308,11 +313,6 @@ class ZmqInterface:
         # Close image processor
         self.img_proc.release()
         logger.info('Image processor closed.')
-
-        # Stop threads if any (e.g., self.k2a)
-        if self.k2a is not None:
-            self.k2a.listener.stop()
-            logger.info('Keyboard control thread stopped.')
 
     def __del__(self):
         self.close()
