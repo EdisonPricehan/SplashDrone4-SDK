@@ -9,8 +9,10 @@ RTSP_ADDR = "rtsp://192.168.2.220:554"  # https://support.swellpro.com/hc/en-us/
 
 
 class ImageProcessor:
-    def __init__(self):
+    def __init__(self, height: int = 480, width: int = 640):
         self.fcap = None
+        self.h = height
+        self.w = width
 
     def init(self):
         # Get RTSP streamed video
@@ -19,10 +21,10 @@ class ImageProcessor:
             logger.warning('Cannot open RTSP stream, waiting ...')
             time.sleep(1)
         vcap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        vcap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        vcap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        vcap.set(cv2.CAP_PROP_FRAME_WIDTH, self.w)
+        vcap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.h)
         fps = vcap.get(cv2.CAP_PROP_FPS)
-        logger.info(f'RTSP stream available, fps {fps}!')
+        logger.info(f'RTSP stream available, fps {fps}, height: {self.h}, width: {self.w}!')
 
         # Use threading to always get the latest frame
         self.fcap = FreshestFrame(vcap)
@@ -34,7 +36,7 @@ class ImageProcessor:
 
         ret, frame = self.fcap.read()
         if ret:
-            frame = cv2.resize(frame, (640, 480))
+            frame = cv2.resize(frame, (self.w, self.h))
             imgbytes = cv2.imencode('.ppm', frame)[1].tobytes()
             return imgbytes
         else:
@@ -48,6 +50,7 @@ class ImageProcessor:
 
         ret, frame = self.fcap.read()
         if ret:
+            frame = cv2.resize(frame, (self.w, self.h))
             return frame
         return None
 

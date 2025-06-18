@@ -2,19 +2,20 @@
 
 # System packages
 import os
-import cv2
+import sys
 import zmq
 import time
 import numpy as np
 from typing import Optional, List, Union, Tuple
 from loguru import logger
+logger.remove()
+logger.add(sys.stderr, level="INFO")
 import subprocess
 
 # Local packages
 from definitions import *
 from constants import *
 from image_processor import ImageProcessor
-from key2action import Key2Action
 
 
 class ZmqInterface:
@@ -37,12 +38,13 @@ class ZmqInterface:
         :param vert_speed: vertical speed for movement in meters per second.
         """
         # Init TCP communication process
-        tcp_client_path = '/home/orin-nano/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
+        tcp_client_path = '/home/edison/Research/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
         assert os.path.exists(tcp_client_path), (f'TCP client path {tcp_client_path} does not exist, '
                                                  f'make sure you have built the ROS2 package using '
                                                  f'"colcon build --symlink-install"!')
+
         # Change the tcp_client_path to the actual path of the tcp_client executable
-        self.tcp_client_process = subprocess.Popen(['/home/orin-nano/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client', '192.168.2.1'])
+        self.tcp_client_process = subprocess.Popen([tcp_client_path, '192.168.2.1'])
         logger.info('TCP client process started.')
 
         # Init all reports (received from drone)
@@ -67,6 +69,7 @@ class ZmqInterface:
         self.m3d_waypoints = []  # movement in 3d, each item is relative position in meter (x, y, z) - NOT WORKING
         self.mission_waypoints = []  # waypoint as (lat, lon, hover_time), need to specify fly speed and altitude first
         self.img = None
+        self.camera_yaw_offset = 0.  # yaw change in degrees of drone camera
 
         # Init image processor
         self.img_proc = ImageProcessor()
@@ -126,7 +129,7 @@ class ZmqInterface:
         if self.img is None:
             logger.warning("Image is None, please check the image stream.")
         else:
-            logger.info(f'Image received with shape: {self.img.shape}, dtype: {self.img.dtype}')
+            logger.debug(f'Image received with shape: {self.img.shape}, dtype: {self.img.dtype}')
 
         return self.img
 
@@ -153,16 +156,18 @@ class ZmqInterface:
             logger.warning("Fly report not updated, waiting for new report...")
             return
 
-        if self.fly_report.GpsNum < 9:
-            logger.warning(f"GPS number {self.fly_report.GpsNum} is less than 9, waiting for better GPS signal...")
-            return
+        # if self.fly_report.GpsNum < 9:
+        #     logger.warning(f"GPS number {self.fly_report.GpsNum} is less than 9, waiting for better GPS signal...")
+        #     return
 
         # Get relative distances in 3D space
         x, y, z, theta = self._get_relative_dist(a)
 
         # Yaw control
         if abs(theta) > 1e-3:
-            self.set_gimbal(yaw=theta)
+            self.camera_yaw_offset += theta
+            self.set_gimbal(yaw=self.camera_yaw_offset)
+            logger.info(f"Gimbal set to: {self.camera_yaw_offset}")
 
             self.gimbal_report.updated = False
         # Waypoint control
@@ -178,7 +183,7 @@ class ZmqInterface:
             # Set waypoint
             cur_wp_with_yaw = WayPointWithYaw(self.fly_report.Lat / 1e7,
                                               self.fly_report.Lon / 1e7,
-                                              self.fly_report.ATTYaw)
+                                              self.fly_report.ATTYaw + self.camera_yaw_offset)
             wp = WayPoint.from_cartesian(cur_wp_with_yaw, x=x, y=y, hover_time=0, act_now=True)
             self.pub.send(wp.getPacked())
 
