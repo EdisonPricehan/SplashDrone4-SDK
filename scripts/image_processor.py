@@ -51,6 +51,7 @@ class ImageProcessor:
         ret, frame = self.fcap.read()
         if ret:
             frame = cv2.resize(frame, (self.w, self.h))
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
             return frame
         return None
 
