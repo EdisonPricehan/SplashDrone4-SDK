@@ -21,24 +21,31 @@ from image_processor import ImageProcessor
 class ZmqInterface:
     def __init__(
             self,
+            img_height: int = 128,
+            img_width: int = 128,
             long_dist: float = 2.,
             lat_dist: float = 1.,
             vert_dist: float = 1.,
             yaw_angle: float = 20.,
             hori_speed: float = 1.,
             vert_speed: float = 0.5,
+            debug: bool = False,
     ):
         """
         Initialize the ZMQ interface for communication with the SplashDrone4.
+        :param img_height: Height of the image in pixels.
+        :param img_width: Width of the image in pixels.
         :param long_dist: longitudinal distance for movement in meters.
         :param lat_dist: lateral distance for movement in meters.
         :param vert_dist: vertical distance for movement in meters.
         :param yaw_angle: yaw angle for rotation in degrees.
         :param hori_speed: horizontal speed for movement in meters per second.
         :param vert_speed: vertical speed for movement in meters per second.
+        :param debug: If True, does not check GPS number, for indoor testing or non-flight commands.
         """
         # Init TCP communication process
-        tcp_client_path = '/home/edison/Research/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
+        # tcp_client_path = '/home/edison/Research/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
+        tcp_client_path = '/home/orin-nano/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
         assert os.path.exists(tcp_client_path), (f'TCP client path {tcp_client_path} does not exist, '
                                                  f'make sure you have built the ROS2 package using '
                                                  f'"colcon build --symlink-install"!')
@@ -58,12 +65,15 @@ class ZmqInterface:
         self.gimbal_control = GimbalControl()
 
         # Init constants
+        self.img_height = img_height
+        self.img_width = img_width
         self.long_dist = long_dist
         self.lat_dist = lat_dist
         self.vert_dist = vert_dist
         self.yaw_angle = yaw_angle
         self.hori_speed = hori_speed
         self.vert_speed = vert_speed
+        self.debug = debug
 
         # Init runtime variables
         self.m3d_waypoints = []  # movement in 3d, each item is relative position in meter (x, y, z) - NOT WORKING
@@ -72,7 +82,7 @@ class ZmqInterface:
         self.camera_yaw_offset = 0.  # yaw change in degrees of drone camera
 
         # Init image processor
-        self.img_proc = ImageProcessor()
+        self.img_proc = ImageProcessor(height=img_height, width=img_width)
         self.img_proc.init()  # blocking operation until received image stream
         logger.info('Image processor initialized and ready to receive images.')
 
@@ -123,7 +133,11 @@ class ZmqInterface:
         logger.info(f"Sub to {topic} connected!")
         return sub
 
-    def get_img(self):
+    def get_img(self) -> Optional[np.ndarray]:
+        """
+        Get the latest image from the image processor.
+        :return:
+        """
         self.img = self.img_proc.get_cv_img()
 
         if self.img is None:
@@ -156,9 +170,9 @@ class ZmqInterface:
             logger.warning("Fly report not updated, waiting for new report...")
             return
 
-        # if self.fly_report.GpsNum < 9:
-        #     logger.warning(f"GPS number {self.fly_report.GpsNum} is less than 9, waiting for better GPS signal...")
-        #     return
+        if not self.debug and self.fly_report.GpsNum < 9:
+            logger.warning(f"GPS number {self.fly_report.GpsNum} is less than 9, waiting for better GPS signal...")
+            return
 
         # Get relative distances in 3D space
         x, y, z, theta = self._get_relative_dist(a)
