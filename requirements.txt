@@ -6,3 +6,4 @@ utm==0.8.1
 transforms3d==0.4.2
 loguru==0.7.3
 h5py==3.14.0
+tqdm==4.67.1

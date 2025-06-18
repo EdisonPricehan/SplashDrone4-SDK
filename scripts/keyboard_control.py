@@ -1,30 +1,31 @@
 from zmq_interface import ZmqInterface
 from key2action import Key2Action
+from data_logger import DataLogger
 
-import os
+import sys
 import cv2
 import datetime
 import numpy as np
-import time
 from loguru import logger as log
+log.remove()
+log.add(sys.stderr, level="INFO")
 
 
 class KeyboardControl:
-    def __init__(self, save_data: bool = True):
+    def __init__(self, save_data: bool = True, data_len: int = 1000):
+        """
+        Initialize the KeyboardControl class.
+        :param save_data: Whether to save data or not.
+        :param data_len: The length of the data to be saved.
+        """
         # Init zmq interface and keyboard reader
-        self.zmq_interface = ZmqInterface()
+        self.zmq_interface = ZmqInterface(debug=True)
         self.k2a = Key2Action()
 
         # Define constants
         self.save_data = save_data
         if self.save_data:
-            # Get current date and time as a string
-            self.timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            # Create a directory for saving data
-            data_dir = os.path.join(os.path.dirname(__file__), '../data')
-            os.makedirs(data_dir, exist_ok=True)
-            self.data_filename = f"{data_dir}/keyboard_control_{self.timestamp_str}.npz"
-            log.info(f"Data will be saved in {data_dir}")
+            self.data_logger = DataLogger(data_len=data_len)
 
         # Define variables
         self.strobe_light_on: bool = False
@@ -40,7 +41,8 @@ class KeyboardControl:
             if img is None:
                 log.warning('No image!')
             else:
-                cv2.imshow('img', img)
+                img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                cv2.imshow('img', img_bgr)
                 cv2.waitKey(1)
 
             # Get control input from keyboard
@@ -77,7 +79,6 @@ class KeyboardControl:
             else:
                 key_pressed = False
                 log.debug("No action taken, please press a key.")
-                # time.sleep(0.5)
 
             # Save data if required
             if self.save_data and key_pressed:
@@ -85,21 +86,25 @@ class KeyboardControl:
                     log.warning("No image or action when saving data!")
                     continue
 
-                data = {
-                    'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    'image': img,
-                    'action': action,
-                }
-                np.savez(self.data_filename, **data)
+                # Save data to file
+                self.data_logger.log_data(
+                    timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    image=img,
+                    action=np.array(action),
+                )
 
     def close(self):
         self.zmq_interface.close()
         self.k2a.stop()
         log.info("Keyboard control closed.")
+        if self.save_data:
+            self.data_logger.close()
+            log.info("Data logger closed.")
 
 
 if __name__ == "__main__":
-    keyboard_control = KeyboardControl(save_data=True)
+    keyboard_control = KeyboardControl(save_data=True, data_len=3)
+
     try:
         keyboard_control.run()
     except KeyboardInterrupt:
