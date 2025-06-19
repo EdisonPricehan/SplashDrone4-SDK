@@ -76,7 +76,7 @@ install(
 
 # collect all python scripts
 file(GLOB PY_SCRIPTS
-  "${CMAKE_CURRENT_SOURCE_DIR}/scripts/*.py"
+  "${CMAKE_CURRENT_SOURCE_DIR}/splashdrone4/*.py"
 )
 
 # install python scripts
@@ -84,7 +84,7 @@ install(
   PROGRAMS ${PY_SCRIPTS}
   DESTINATION lib/${PROJECT_NAME}
 )
-list(REMOVE_ITEM PY_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/__init__.py")
+list(REMOVE_ITEM PY_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/splashdrone4/__init__.py")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
