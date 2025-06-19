@@ -12,14 +12,15 @@ log.add(sys.stderr, level="INFO")
 
 
 class KeyboardControl:
-    def __init__(self, save_data: bool = True, data_len: int = 1000):
+    def __init__(self, save_data: bool = True, data_len: int = 1000, debug: bool = False):
         """
         Initialize the KeyboardControl class.
         :param save_data: Whether to save data or not.
         :param data_len: The length of the data to be saved.
+        :param debug: Whether check gps signal, skip check if True.
         """
         # Init zmq interface and keyboard reader
-        self.zmq_interface = ZmqInterface(debug=True)
+        self.zmq_interface = ZmqInterface(debug=debug)
         self.k2a = Key2Action()
 
         # Define constants
