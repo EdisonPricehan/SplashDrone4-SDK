@@ -10,12 +10,17 @@ class ZmqGui:
     # Finite states of drone
     STATES = ['standingby', 'takingoff', 'landing', 'rth']
 
-    def __init__(self):
+    def __init__(self, img_height: int = 480, img_width: int = 640):
         """
         A pure Python class that communicates with SplashDrone4 with GUI.
         This class does not depend on ROS or ROS2.
         """
-        self.zmq_interface = ZmqInterface(start_tcp_client=True, debug=True)
+        self.zmq_interface = ZmqInterface(
+            img_height=img_height,
+            img_width=img_width,
+            start_tcp_client=True,
+            debug=True
+        )
 
         # Init the variables
         self.cur_state = self.STATES[0]  # standingby by default
@@ -167,6 +172,3 @@ class ZmqGui:
 if __name__ == '__main__':
     zmq_gui = ZmqGui()
     zmq_gui.run()
-
-
-
