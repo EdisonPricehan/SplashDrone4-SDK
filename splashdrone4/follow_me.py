@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from definitions import *
+from splashdrone4.definitions import *
 
 import zmq
 from time import sleep

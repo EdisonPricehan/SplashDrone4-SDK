@@ -10,12 +10,12 @@ import time
 from typing import Optional
 
 # Local packages
-from definitions import *
-from gui import *
-from constants import *
-from image_processor import ImageProcessor
-from bag_recorder import BagRecorder
-from key2action import Key2Action
+from splashdrone4.definitions import *
+from splashdrone4.gui import *
+from splashdrone4.constants import *
+from splashdrone4.image_processor import ImageProcessor
+from splashdrone4.bag_recorder import BagRecorder
+from splashdrone4.key2action import Key2Action
 
 
 class ZmqGui(Node):
@@ -135,7 +135,7 @@ class ZmqGui(Node):
         self.get_logger().info(f"Sub to {topic} connected!")
         return sub
 
-    def keyboard_control(self, pub):
+    def keyboard_control(self, pub):  # TODO use KeyboardControl class
         # Use keyboard to control Move3D
         if self.k2a is not None:
             action = self.k2a.get_multi_discrete_action()

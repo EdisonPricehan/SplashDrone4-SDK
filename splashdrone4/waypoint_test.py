@@ -1,5 +1,5 @@
-from definitions import *
-from constants import FORMAT_FLY_REPORT
+from splashdrone4.definitions import *
+from splashdrone4.constants import FORMAT_FLY_REPORT
 
 import zmq
 from time import sleep

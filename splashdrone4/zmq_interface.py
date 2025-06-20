@@ -13,9 +13,9 @@ logger.add(sys.stderr, level="INFO")
 import subprocess
 
 # Local packages
-from definitions import *
-from constants import *
-from image_processor import ImageProcessor
+from splashdrone4.definitions import *
+from splashdrone4.constants import *
+from splashdrone4.image_processor import ImageProcessor
 
 
 class ZmqInterface:

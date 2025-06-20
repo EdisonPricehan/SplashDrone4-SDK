@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 from typing import Optional, List
 
-from definitions import FlyReport, GimbalReport, deg2rad
+from splashdrone4.definitions import FlyReport, GimbalReport, deg2rad
 
 
 class BagRecorder(Node):
