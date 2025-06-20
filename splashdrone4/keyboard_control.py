@@ -16,6 +16,20 @@ class KeyboardControl:
     def __init__(self, save_data: bool = True, data_len: int = 1000, debug: bool = False):
         """
         Initialize the KeyboardControl class.
+        All key mappings are as follows:
+            Left arrow: toggle strobe light.
+            Right arrow: toggle arm lights.
+            Up arrow: Take off.
+            Down arrow: Land.
+            Key r: reset gimbal.
+            Key w: Increase drone altitude.
+            Key s: Decrease drone altitude.
+            Key a: Rotate drone camera ccw (top view).
+            Key d: Rotate drone camera cw (top view).
+            Key i: Move drone forward (along camera heading).
+            Key k: Move drone backward (along camera heading).
+            Key j: Move drone leftward (perpendicular to camera heading).
+            Key l: Move drone rightward (perpendicular to camera heading).
         :param save_data: Whether to save data or not.
         :param data_len: The length of the data to be saved.
         :param debug: Whether check gps signal, skip check if True.
@@ -88,6 +102,7 @@ class KeyboardControl:
         # Get control input from keyboard
         arrow = self.k2a.get_arrow_key()
         space = self.k2a.get_space_key()
+        reset = self.k2a.get_reset_action()
         action = self.k2a.get_multi_discrete_action()
 
         if arrow == 'up':  # Take off
@@ -110,6 +125,8 @@ class KeyboardControl:
                 arm_light_on=not self.arm_light_on,
             )
             self.arm_light_on = self.zmq_interface.ext_dev_onoff.arm_light
+        elif reset == 'reset':
+            self.zmq_interface.reset()
 
         acted = True  # Whether an action was taken
         overlaid = False  # Whether the policy action was overlaid by human input
@@ -130,12 +147,10 @@ class KeyboardControl:
         return acted, overlaid, action if overlaid else action_policy
 
     def run(self):
-        # Reset the gimbal to a default position
-        self.reset()
-
         while True:
             # Get control input from keyboard while updating the image
             _, action = self.step()
+            log.info(f'Action taken: {action}')
 
             # Save data if required
             if self.save_data:
@@ -155,7 +170,7 @@ class KeyboardControl:
 
 
 if __name__ == "__main__":
-    keyboard_control = KeyboardControl(save_data=True, data_len=10, debug=False)
+    keyboard_control = KeyboardControl(save_data=False, data_len=10, debug=True)
 
     try:
         keyboard_control.run()
