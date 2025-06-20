@@ -23,11 +23,13 @@ class ZmqInterface:
             self,
             img_height: int = 128,
             img_width: int = 128,
-            long_dist: float = 2.,
-            lat_dist: float = 1.,
-            vert_dist: float = 1.,
+            long_dist: float = 3.,
+            lat_dist: float = 2.,
+            vert_dist: float = 2.,
             yaw_angle: float = 20.,
-            hori_speed: float = 1.,
+            pitch_angle_fixed: float = 15.,
+            takeoff_height_default: float = 5.,
+            hori_speed: float = 2.,
             vert_speed: float = 0.5,
             debug: bool = False,
     ):
@@ -39,6 +41,8 @@ class ZmqInterface:
         :param lat_dist: lateral distance for movement in meters.
         :param vert_dist: vertical distance for movement in meters.
         :param yaw_angle: yaw angle for rotation in degrees.
+        :param pitch_angle_fixed: fixed pitch angle for gimbal in degrees.
+        :param takeoff_height_default: default takeoff height in meters.
         :param hori_speed: horizontal speed for movement in meters per second.
         :param vert_speed: vertical speed for movement in meters per second.
         :param debug: If True, does not check GPS number, for indoor testing or non-flight commands.
@@ -72,6 +76,8 @@ class ZmqInterface:
         self.lat_dist = lat_dist
         self.vert_dist = vert_dist
         self.yaw_angle = yaw_angle
+        self.pitch_angle_fixed = pitch_angle_fixed
+        self.takeoff_height_default = takeoff_height_default
         self.hori_speed = hori_speed
         self.vert_speed = vert_speed
         self.debug = debug
@@ -147,6 +153,17 @@ class ZmqInterface:
             logger.debug(f'Image received with shape: {self.img.shape}, dtype: {self.img.dtype}')
 
         return self.img
+
+    def reset(self):
+        """
+        Reset the gimbal and lights to the default values.
+        :return: None
+        """
+        self.update_reports()
+
+        self.set_gimbal(roll=0, pitch=self.pitch_angle_fixed, yaw=0)
+
+        self.set_ext_dev()
 
     def step(self, action: Union[List, np.ndarray]):
         """
@@ -237,12 +254,17 @@ class ZmqInterface:
 
         return x, y, z, theta
 
-    def take_off(self, height: float = 1.0):
+    def take_off(self, height: Optional[float] = None):
         """
         Send the takeoff command to the drone with a specified height.
-        :param height: The height to take off to in meters. Default is 1.0 meter.
+        :param height: The height to take off to in meters.
         :return: None
         """
+        if height is None:
+            height = self.takeoff_height_default
+        else:
+            assert height > 1.0, "Takeoff height must be greater than 1.0 meter."
+
         takeoff = TakeOff(height=height)
         self.pub.send(takeoff.getPacked())
         logger.info(f"Takeoff command sent with height {height}.")
@@ -339,7 +361,7 @@ class ZmqInterface:
 
 
 if __name__ == '__main__':
-    zmq_interface = ZmqInterface(enable_keyboard_control=True)
+    zmq_interface = ZmqInterface()
 
     # Test image
     # try:
