@@ -38,7 +38,7 @@ def generate_launch_description():
             # ZMQ-GUI node
             Node(
                 package='splashdrone',
-                executable='zmq_gui.py',
+                executable='zmq_gui_node.py',
                 name='zmq_gui',
                 output='screen',
                 parameters=[{'record_bag': LaunchConfiguration('record_bag'),
