@@ -56,7 +56,11 @@ class KeyboardControl:
         return self.img
 
     def reset(self):
-        self.zmq_interface.set_gimbal(pitch=25)
+        """
+        Reset the gimbal and lights to default values.
+        :return:
+        """
+        self.zmq_interface.reset()
 
     def step(self, action: Optional[List[int]] = None):
         """
@@ -151,7 +155,7 @@ class KeyboardControl:
 
 
 if __name__ == "__main__":
-    keyboard_control = KeyboardControl(save_data=True, data_len=5, debug=True)
+    keyboard_control = KeyboardControl(save_data=True, data_len=10, debug=False)
 
     try:
         keyboard_control.run()
