@@ -66,6 +66,17 @@ class Key2Action:
             log.debug(f'Unrecognized key {self.last_key} when getting space key')
             return None
 
+    def get_reset_action(self) -> Optional[str]:
+        if self.last_key is None:
+            return None
+
+        if self.last_key == 'r':
+            self.last_key = None
+            return 'reset'
+        else:
+            log.debug(f'Unrecognized key {self.last_key} when getting reset key')
+            return None
+
     def get_multi_discrete_action(self) -> Optional[List[int]]:
         if self.last_key is None:
             return None
