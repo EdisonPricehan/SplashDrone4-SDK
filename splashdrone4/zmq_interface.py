@@ -44,8 +44,9 @@ class ZmqInterface:
         :param debug: If True, does not check GPS number, for indoor testing or non-flight commands.
         """
         # Init TCP communication process
-        # tcp_client_path = '/home/edison/Research/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
-        tcp_client_path = '/home/orin-nano/splashdrone_ws/install/splashdrone/lib/splashdrone/tcp_client'
+        tcp_client_install_path = 'install/splashdrone/lib/splashdrone/tcp_client'
+        tcp_client_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../..', tcp_client_install_path)
+        logger.info(f'TCP client path: {tcp_client_path}')
         assert os.path.exists(tcp_client_path), (f'TCP client path {tcp_client_path} does not exist, '
                                                  f'make sure you have built the ROS2 package using '
                                                  f'"colcon build --symlink-install"!')
