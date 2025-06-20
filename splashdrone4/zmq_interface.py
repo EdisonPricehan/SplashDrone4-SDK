@@ -31,6 +31,7 @@ class ZmqInterface:
             takeoff_height_default: float = 5.,
             hori_speed: float = 2.,
             vert_speed: float = 0.5,
+            start_tcp_client: bool = True,
             debug: bool = False,
     ):
         """
@@ -45,19 +46,21 @@ class ZmqInterface:
         :param takeoff_height_default: default takeoff height in meters.
         :param hori_speed: horizontal speed for movement in meters per second.
         :param vert_speed: vertical speed for movement in meters per second.
+        :param start_tcp_client: If True, starts the TCP client process to communicate with the drone.
         :param debug: If True, does not check GPS number, for indoor testing or non-flight commands.
         """
-        # Init TCP communication process
-        tcp_client_install_path = 'install/splashdrone/lib/splashdrone/tcp_client'
-        tcp_client_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../..', tcp_client_install_path)
-        logger.info(f'TCP client path: {tcp_client_path}')
-        assert os.path.exists(tcp_client_path), (f'TCP client path {tcp_client_path} does not exist, '
-                                                 f'make sure you have built the ROS2 package using '
-                                                 f'"colcon build --symlink-install"!')
+        if start_tcp_client:
+            # Init TCP communication process
+            tcp_client_install_path = 'install/splashdrone/lib/splashdrone/tcp_client'
+            tcp_client_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../..', tcp_client_install_path)
+            logger.info(f'TCP client path: {tcp_client_path}')
+            assert os.path.exists(tcp_client_path), (f'TCP client path {tcp_client_path} does not exist, '
+                                                     f'make sure you have built the ROS2 package using '
+                                                     f'"colcon build --symlink-install"!')
 
-        # Change the tcp_client_path to the actual path of the tcp_client executable
-        self.tcp_client_process = subprocess.Popen([tcp_client_path, '192.168.2.1'])
-        logger.info('TCP client process started.')
+            # Start the TCP client process
+            self.tcp_client_process = subprocess.Popen([tcp_client_path, '192.168.2.1'])
+            logger.info('TCP client process started.')
 
         # Init all reports (received from drone)
         self.fly_report = FlyReport()
@@ -68,6 +71,7 @@ class ZmqInterface:
         # Init control commands that vary (sent to drone)
         self.ext_dev_onoff = ExtDevOnOff()
         self.gimbal_control = GimbalControl()
+        self.camera_control = CameraControl()
 
         # Init constants
         self.img_height = img_height
@@ -80,6 +84,7 @@ class ZmqInterface:
         self.takeoff_height_default = takeoff_height_default
         self.hori_speed = hori_speed
         self.vert_speed = vert_speed
+        self.start_tcp_client = start_tcp_client
         self.debug = debug
 
         # Init runtime variables
@@ -116,6 +121,10 @@ class ZmqInterface:
                             TOPIC_ACK: (FORMAT_ACK, self.sub4, self.ack)}
 
     def update_reports(self) -> None:
+        """
+        Update the reports from the drone by receiving messages from the ZMQ subscribers.
+        :return: None
+        """
         for k, (fmt, sub, report) in self.topic2tuple.items():
             try:
                 binary_topic, data_buffer = sub.recv(zmq.DONTWAIT).split(b' ', 1)
@@ -159,8 +168,6 @@ class ZmqInterface:
         Reset the gimbal and lights to the default values.
         :return: None
         """
-        self.update_reports()
-
         self.set_gimbal(roll=0, pitch=self.pitch_angle_fixed, yaw=0)
 
         self.set_ext_dev()
@@ -199,7 +206,7 @@ class ZmqInterface:
         if abs(theta) > 1e-3:
             self.camera_yaw_offset += theta
             self.set_gimbal(yaw=self.camera_yaw_offset)
-            logger.info(f"Gimbal set to: {self.camera_yaw_offset}")
+            # logger.info(f"Gimbal yaw set to: {self.camera_yaw_offset}")
 
             self.gimbal_report.updated = False
         # Waypoint control
@@ -337,6 +344,28 @@ class ZmqInterface:
                     f"Roll={self.gimbal_control.roll}, "
                     f"Pitch={self.gimbal_control.pitch}, "
                     f"Yaw={self.gimbal_control.yaw}.")
+
+    def set_camera(self, take_photo: bool = False, start_video: bool = False):
+        """
+        Set the camera control to take a photo or start video recording.
+        :param take_photo: If True, take a photo.
+        :param start_video: If True, start video recording; otherwise stop video recording.
+        :return: None
+        """
+        if take_photo:
+            self.camera_control.take_photo = True
+            logger.info("Camera set to take photo.")
+        else:
+            self.camera_control.take_photo = False
+
+        if start_video:
+            self.camera_control.start_video = True
+            logger.info("Camera set to start video recording.")
+        else:
+            self.camera_control.start_video = False
+            logger.info("Camera set to stop video recording.")
+
+        self.pub.send(self.camera_control.getPacked())
 
     def close(self):
         # Terminate tcp_client process
