@@ -68,7 +68,7 @@ class DataReader:
             img_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             cv2.imshow('Logged Image', img_bgr)
             log.info(f'Timestamp: {timestamp}, Action: {action}')
-            cv2.waitKey(500)
+            cv2.waitKey(1000)
 
 
 if __name__ == "__main__":
@@ -77,10 +77,16 @@ if __name__ == "__main__":
     #               '../data/data_log_20250618_160627.h5',
     #               '../data/data_log_20250618_160636.h5',
     #               '../data/data_log_20250618_160658.h5']
-    data_files = ['../data/data_log_20250618_163702.h5',
-                  '../data/data_log_20250618_163712.h5',
-                  '../data/data_log_20250618_163718.h5',
-                  '../data/data_log_20250618_163724.h5']
+    # data_files = ['../data/data_log_20250618_163702.h5',
+    #               '../data/data_log_20250618_163712.h5',
+    #               '../data/data_log_20250618_163718.h5',
+    #               '../data/data_log_20250618_163724.h5']
+    data_files = [
+        '../data/data_log_20250620_141941.h5',
+        '../data/data_log_20250620_142103.h5',
+        '../data/data_log_20250620_142153.h5',
+        '../data/data_log_20250620_142237.h5',
+    ]
 
     reader = DataReader(filenames=data_files)
 
