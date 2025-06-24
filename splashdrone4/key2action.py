@@ -1,7 +1,10 @@
+import sys
 from pynput import keyboard
 from typing import Optional, List
 import random
 from loguru import logger as log
+log.remove()
+log.add(sys.stderr, level="INFO")
 
 
 class Key2Action:
@@ -24,7 +27,7 @@ class Key2Action:
 
         try:
             self.last_key = key.char
-            log.info(f'Key pressed: {self.last_key}')
+            log.debug(f'Key pressed: {self.last_key}')
         except AttributeError:
             if key in [keyboard.Key.left, keyboard.Key.right, keyboard.Key.up, keyboard.Key.down]:
                 self.last_key = str(key)  # e.g., 'Key.left'
@@ -75,6 +78,17 @@ class Key2Action:
             return 'reset'
         else:
             log.debug(f'Unrecognized key {self.last_key} when getting reset key')
+            return None
+
+    def get_good_to_go_key(self) -> Optional[str]:
+        if self.last_key is None:
+            return None
+
+        if self.last_key == 'g':
+            self.last_key = None
+            return 'good_to_go'
+        else:
+            log.debug(f'Unrecognized key {self.last_key} when getting good-to-go key')
             return None
 
     def get_multi_discrete_action(self) -> Optional[List[int]]:

@@ -80,20 +80,22 @@ class KeyboardControl:
         """
         Take a step in the ZMQ interface with the given action.
         :param action: The action to be taken, if any.
-        :return: A tuple containing the overlaid boolean and the action taken.
+        :return: A tuple containing the overlaid boolean, the action taken, the image when action was taken, and the
+        reset boolean.
         """
         if action is not None:
             log.info(f'Agent action received: {action}')
 
-        acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
-        while not acted:
-            # Update the most recent image
-            self.get_img(show=True)
+        ep_reset, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
+        img = self.get_img(show=True)
+        while not acted:  # acted is for internal check of whether a meaningful command has been received
+            # Update the most recent image, a blocking call
+            img = self.get_img(show=True)
 
             log.debug("Waiting for action input...")
-            acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
+            ep_reset, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
 
-        return overlaid, action_taken
+        return img, ep_reset, g2g, overlaid, action_taken
 
     def _keyboard_act(self, action_policy: Optional[List[int]] = None):
         # Update fly reports
@@ -102,9 +104,11 @@ class KeyboardControl:
         # Get control input from keyboard
         arrow = self.k2a.get_arrow_key()
         space = self.k2a.get_space_key()
+        good_to_go = self.k2a.get_good_to_go_key()
         reset = self.k2a.get_reset_action()
         action = self.k2a.get_multi_discrete_action()
 
+        reset_episode = False  # Whether the current episode is reset
         if arrow == 'up':  # Take off
             self.zmq_interface.take_off()
         elif arrow == 'down':  # Land
@@ -127,29 +131,37 @@ class KeyboardControl:
             self.arm_light_on = self.zmq_interface.ext_dev_onoff.arm_light
         elif reset == 'reset':
             self.zmq_interface.reset()
+            reset_episode = True
 
-        acted = True  # Whether an action was taken
+        g2g = False  # Whether the agent is good to go (for inference)
+        acted = True  # Whether a decision was made
         overlaid = False  # Whether the policy action was overlaid by human input
-        if space == 'space':  # Consent agent action
-            if action_policy is not None:
-                log.info("Consent for agent action.")  # Take action based on agent policy
-                self.zmq_interface.step(action=action_policy)
+        # If human resets an episode, deems it as acted but not overlaid
+        if not reset_episode:
+            if good_to_go == 'good_to_go':  # Proceed agent policy
+                if action_policy is not None:
+                    log.warning(f'Already given agent action {action_policy} when good to go.')
+                g2g = True
+            elif space == 'space':  # Consent agent action
+                if action_policy is not None:
+                    log.info("Consent for agent action.")  # Take action based on agent policy
+                    self.zmq_interface.step(action=action_policy)
+                else:
+                    log.warning('No agent action to consent to, please provide the policy action.')
+                    acted = False
+            elif action is not None:  # Take action based on keyboard input from human
+                self.zmq_interface.step(action=action)
+                overlaid = True
             else:
-                log.warning('No agent action to consent to, please provide the policy action.')
                 acted = False
-        elif action is not None:  # Take action based on keyboard input from human
-            self.zmq_interface.step(action=action)
-            overlaid = True
-        else:
-            acted = False
-            log.debug("No action taken, please press a key.")
+                log.debug("No action taken, please press a key.")
 
-        return acted, overlaid, action if overlaid else action_policy
+        return reset_episode, g2g, acted, overlaid, action if overlaid else action_policy
 
     def run(self):
         while True:
             # Get control input from keyboard while updating the image
-            _, action = self.step()
+            *_, action = self.step()
             log.info(f'Action taken: {action}')
 
             # Save data if required
