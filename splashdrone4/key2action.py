@@ -180,7 +180,21 @@ if __name__ == '__main__':
     try:
         while True:
             arrow_key = k2a.get_arrow_key()
-            print(f'Arrow key pressed: {arrow_key}')
+            if arrow_key is not None:
+                print(f'Arrow key pressed: {arrow_key}')
+
+            space_key = k2a.get_space_key()
+            if space_key == 'space':
+                print(f'Space key pressed.')
+
+            reset_key = k2a.get_reset_action()
+            if reset_key == 'reset':
+                print(f'Reset key pressed.')
+
+            action = k2a.get_multi_discrete_action()
+            if action is not None:
+                print(f'Action pressed: {action}')
+
             time.sleep(0.1)
     except KeyboardInterrupt:
         k2a.stop()
