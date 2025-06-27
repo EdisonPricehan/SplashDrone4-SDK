@@ -163,6 +163,20 @@ class ZmqInterface:
 
         return self.img
 
+    def get_gps_with_yaw(self, use_camera_heading: bool = True) -> WayPointWithYaw:
+        """
+        Get the current gps location and drone compass (angle relative to earth north, -180 to 180).
+        :param use_camera_offset: Use camera heading if True, otherwise drone heading.
+        :return: WayPointWithYaw
+        """
+        waypoint_with_yaw = WayPointWithYaw(
+            lat=self.fly_report.Lat / 1e7,
+            lon=self.fly_report.Lon / 1e7,
+            yaw=self.fly_report.ATTYaw + (self.camera_yaw_offset if use_camera_heading else 0),
+        )
+
+        return waypoint_with_yaw
+
     def reset(self):
         """
         Reset the gimbal and lights to the default values.
@@ -220,9 +234,7 @@ class ZmqInterface:
             self.pub.send(set_alt.getPacked())
 
             # Set waypoint
-            cur_wp_with_yaw = WayPointWithYaw(self.fly_report.Lat / 1e7,
-                                              self.fly_report.Lon / 1e7,
-                                              self.fly_report.ATTYaw + self.camera_yaw_offset)
+            cur_wp_with_yaw = self.get_gps_with_yaw(use_camera_heading=True)
             wp = WayPoint.from_cartesian(cur_wp_with_yaw, x=x, y=y, hover_time=0, act_now=True)
             self.pub.send(wp.getPacked())
 

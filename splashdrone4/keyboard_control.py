@@ -92,10 +92,13 @@ class KeyboardControl:
             # Update the most recent image, a blocking call
             img = self.get_img(show=True)
 
+            # Update the most recent drone gps and heading (actually is camera heading)
+            wp_yaw = self.zmq_interface.get_gps_with_yaw(use_camera_heading=True)
+
             log.debug("Waiting for action input...")
             ep_reset, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
 
-        return img, ep_reset, g2g, overlaid, action_taken
+        return img, wp_yaw, ep_reset, g2g, overlaid, action_taken
 
     def _keyboard_act(self, action_policy: Optional[List[int]] = None):
         # Update fly reports
@@ -161,7 +164,7 @@ class KeyboardControl:
     def run(self):
         while True:
             # Get control input from keyboard while updating the image
-            *_, action = self.step()
+            img, wp_yaw, ep_reset, g2g, overlaid, action = self.step()
             log.info(f'Action taken: {action}')
 
             # Save data if required
