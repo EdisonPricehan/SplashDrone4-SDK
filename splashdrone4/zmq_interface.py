@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# zmq_interface.py: Interface using ZeroMQ to interact with tcp_client.
+# Copyright (C) <2025>  <Zihan Wang>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 
 # System packages
 import os
@@ -13,6 +29,7 @@ logger.add(sys.stderr, level="INFO")
 import subprocess
 
 # Local packages
+from splashdrone4.constants import TCP_CLIENT_IP
 from splashdrone4.definitions import *
 from splashdrone4.constants import *
 from splashdrone4.image_processor import ImageProcessor
@@ -59,7 +76,7 @@ class ZmqInterface:
                                                      f'"colcon build --symlink-install"!')
 
             # Start the TCP client process
-            self.tcp_client_process = subprocess.Popen([tcp_client_path, '192.168.2.1'])
+            self.tcp_client_process = subprocess.Popen([tcp_client_path, TCP_CLIENT_IP])
             logger.info('TCP client process started.')
 
         # Init all reports (received from drone)
