@@ -37,18 +37,14 @@ class DataReader:
             log.error('No filenames provided for DataReader.')
             raise ValueError('Filenames list cannot be empty.')
 
-        self.data = {
-            'timestamp': [],
-            'image': [],
-            'action': []
-        }
-        self._load_data()
+        self.data = self._load_data()
 
     def _load_data(self):
         """
         Load data from the specified HDF5 files.
         """
         log.info('Loading data from HDF5 files...')
+        data = {}
 
         for filename in self.filenames:
             if not os.path.exists(filename):
@@ -58,33 +54,38 @@ class DataReader:
             with h5py.File(filename, 'r') as h5file:
                 count = h5file.attrs.get('count', len(h5file['timestamp']))
 
-                timestamps = h5file['timestamp'][:count]
-                images = h5file['image'][:count]
-                actions = h5file['action'][:count]
+                for key in h5file.keys():
+                    dataset = h5file[key]
+                    if count is not None:
+                        values = dataset[:count]
+                    else:
+                        values = dataset[:]
+                    if key not in data:
+                        data[key] = []
+                    data[key].extend(values)
 
-                for i in range(len(timestamps)):
-                    timestamp = timestamps[i]
-                    image = images[i]
-                    action = actions[i]
-
-                    self.data['timestamp'].append(timestamp)
-                    self.data['image'].append(image)
-                    self.data['action'].append(action)
-
-        log.info(f'Loaded {len(self.data["timestamp"])} records from {len(self.filenames)} files.')
+        log.info(f'Loaded {len(next(iter(data.values())))} records from {len(self.filenames)} files.')
+        return data
 
     def play(self):
         """
         Play the logged data by displaying images and printing actions.
         """
-        for i in tqdm(range(len(self.data['timestamp']))):
-            timestamp = self.data['timestamp'][i].decode('utf-8')
-            image = self.data['image'][i]
-            action = self.data['action'][i]
+        log.info(f'All keys: {self.data.keys()}')
 
-            img_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            cv2.imshow('Logged Image', img_bgr)
-            log.info(f'Timestamp: {timestamp}, Action: {action}')
+        n = len(next(iter(self.data.values())))
+        for i in tqdm(range(n)):
+            if 'image' in self.data:
+                img_bgr = cv2.cvtColor(self.data['image'][i], cv2.COLOR_RGB2BGR)
+                cv2.imshow('Image', img_bgr)
+            if 'mask' in self.data:
+                cv2.imshow('Mask', self.data['mask'][i])
+            timestamp = self.data['timestamp'][i].decode() if 'timestamp' in self.data else None
+            wp_yaw = self.data['wp_yaw'][i] if 'wp_yaw' in self.data else None
+            action = self.data['action'][i] if 'action' in self.data else None
+            overlaid = self.data['overlaid'][i] if 'overlaid' in self.data else None
+            log.info(f'Timestamp: {timestamp}, Action: {action}, WP-Yaw: {wp_yaw}, Overlaid: {overlaid}')
+
             cv2.waitKey(1000)
 
 
@@ -98,11 +99,17 @@ if __name__ == "__main__":
     #               '../data/data_log_20250618_163712.h5',
     #               '../data/data_log_20250618_163718.h5',
     #               '../data/data_log_20250618_163724.h5']
+    # data_files = [
+    #     '../data/data_log_20250620_141941.h5',
+    #     '../data/data_log_20250620_142103.h5',
+    #     '../data/data_log_20250620_142153.h5',
+    #     '../data/data_log_20250620_142237.h5',
+    # ]
     data_files = [
-        '../data/data_log_20250620_141941.h5',
-        '../data/data_log_20250620_142103.h5',
-        '../data/data_log_20250620_142153.h5',
-        '../data/data_log_20250620_142237.h5',
+        '../data/data_log_20250628_153349.h5',
+        '../data/data_log_20250628_153519.h5',
+        '../data/data_log_20250628_153746.h5',
+        '../data/data_log_20250628_153901.h5',
     ]
 
     reader = DataReader(filenames=data_files)

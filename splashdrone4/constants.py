@@ -32,3 +32,8 @@ FORMAT_BATTERY_REPORT = "3HBb4Bi"  # refer to definition in battery_info.h
 FORMAT_GIMBAL_REPORT = "3f"  # refer to definition in gimbal.h
 FORMAT_NAV_REPORT = "6BHh2i"  # refer to definition in nav_state_report.h
 FORMAT_ACK = "=BBI"  # refer to definition in fly_state_report.h
+
+IMG_HEIGHT = 128
+IMG_WIDTH = 128
+ACTION_DIM = 4
+

@@ -24,6 +24,8 @@ from loguru import logger as log
 log.remove()
 log.add(sys.stderr, level="INFO")
 
+from splashdrone4.constants import IMG_HEIGHT, IMG_WIDTH, ACTION_DIM
+
 
 class DataLogger:
     def __init__(self, data_len: int = 1000):
@@ -31,9 +33,6 @@ class DataLogger:
         Initialize the DataLogger.
         """
         # Define constants
-        self.img_height: int = 128
-        self.img_width: int = 128
-        self.action_dim: int = 4
         self.data_len = data_len
 
         # Create h5 file
@@ -61,11 +60,12 @@ class DataLogger:
         Create datasets in the h5 file.
         """
         assert self.h5file is not None, 'H5 file is not created yet.'
-
+        self.h5file.create_dataset('wp_yaw', (self.data_len, 3), dtype=np.float32)
         self.h5file.create_dataset('timestamp', (self.data_len,), dtype=h5py.string_dtype())
-        self.h5file.create_dataset('image', (self.data_len, self.img_height, self.img_width, 3), dtype='uint8')
-        self.h5file.create_dataset('action', (self.data_len, self.action_dim), dtype='uint8')
-        # TODO log action overlay boolean
+        self.h5file.create_dataset('image', (self.data_len, IMG_HEIGHT, IMG_WIDTH, 3), dtype='uint8')
+        self.h5file.create_dataset('mask', (self.data_len, IMG_HEIGHT, IMG_WIDTH), dtype='uint8')
+        self.h5file.create_dataset('action', (self.data_len, ACTION_DIM), dtype='uint8')
+        self.h5file.create_dataset('overlaid', (self.data_len, 1), dtype=np.bool_)
 
     def _update_count_attr(self):
         """
@@ -77,15 +77,26 @@ class DataLogger:
         else:
             log.warning('H5 file is not created yet, cannot update count attribute.')
 
-    def log_data(self, timestamp: str, image: np.ndarray, action: np.ndarray):
+    def log_data(
+            self,
+            timestamp: str,
+            wp_yaw: np.ndarray,
+            image: np.ndarray,
+            mask: np.ndarray,
+            action: np.ndarray,
+            overlaid: bool,
+    ):
         """
         Log data to the file.
         :param timestamp: The timestamp of the data.
+        :param wp_yaw: GPS waypoint with yaw.
         :param image: The image data.
+        :param mask: The segmented water mask.
         :param action: The action taken.
+        :param overlaid: Whether RL policy action is overlaid by human.
         """
         if self.index >= self.data_len:
-            log.warning('Data logger is full, creating new h5 file.')
+            log.warning('Current h5 file is full, creating new h5 file.')
 
             # Update count attribute
             self._update_count_attr()
@@ -99,20 +110,37 @@ class DataLogger:
         # Log timestamp
         self.h5file['timestamp'][self.index] = timestamp
 
+        # Log gps with yaw
+        if wp_yaw.shape != (3,):
+            log.error(f'Waypoint with yaw expects 3-tuple (lat, lon, yaw), given dim: {wp_yaw.shape}')
+            return
+        self.h5file['wp_yaw'][self.index] = wp_yaw
+
         # Log image
-        if image.shape != (self.img_height, self.img_width, 3):
-            log.error(f'Image shape {image.shape} does not match expected shape {(self.img_height, self.img_width, 3)}')
+        if image.shape != (IMG_HEIGHT, IMG_WIDTH, 3):
+            log.error(f'Image shape {image.shape} does not match expected shape {(IMG_HEIGHT, IMG_WIDTH, 3)}')
             return
         self.h5file['image'][self.index] = image
 
+        if mask.shape != (IMG_HEIGHT, IMG_WIDTH):
+            log.error(f'Image shape {mask.shape} does not match expected shape {(IMG_HEIGHT, IMG_WIDTH)}')
+            return
+        self.h5file['mask'][self.index] = mask
+
         # Log action
-        if action.shape != (self.action_dim,):
-            log.error(f'Action shape {action.shape} does not match expected shape {(self.action_dim,)}')
+        if action.shape != (ACTION_DIM,):
+            log.error(f'Action shape {action.shape} does not match expected shape {(ACTION_DIM,)}')
             return
         self.h5file['action'][self.index] = action
 
+        # Log action overlay boolean
+        if not isinstance(overlaid, bool):
+            log.error(f'Action overlay should be a boolean type, given type {type(overlaid)}')
+            return
+        self.h5file['overlaid'][self.index] = overlaid
+
+        log.debug(f'Data logged at index {self.index}')
         self.index += 1
-        log.debug(f'Data logged at index {self.index - 1}')
 
     def close(self):
         """
