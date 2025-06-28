@@ -29,7 +29,7 @@ logger.add(sys.stderr, level="INFO")
 import subprocess
 
 # Local packages
-from splashdrone4.constants import TCP_CLIENT_IP
+from splashdrone4.constants import TCP_CLIENT_ADDR
 from splashdrone4.definitions import *
 from splashdrone4.constants import *
 from splashdrone4.image_processor import ImageProcessor
@@ -76,7 +76,7 @@ class ZmqInterface:
                                                      f'"colcon build --symlink-install"!')
 
             # Start the TCP client process
-            self.tcp_client_process = subprocess.Popen([tcp_client_path, TCP_CLIENT_IP])
+            self.tcp_client_process = subprocess.Popen([tcp_client_path, TCP_CLIENT_ADDR])
             logger.info('TCP client process started.')
 
         # Init all reports (received from drone)

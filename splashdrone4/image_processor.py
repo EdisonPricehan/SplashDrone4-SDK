@@ -20,9 +20,7 @@ import cv2
 from loguru import logger
 
 from splashdrone4.freshest_frame import FreshestFrame
-
-# Constant rtsp address
-RTSP_ADDR = "rtsp://192.168.2.220:554"  # https://support.swellpro.com/hc/en-us/articles/5890485717017-SplashDrone-4-SDK
+from splashdrone4.constants import RTSP_ADDR
 
 
 class ImageProcessor:

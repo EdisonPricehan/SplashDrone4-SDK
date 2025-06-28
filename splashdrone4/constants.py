@@ -15,8 +15,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+# Constant rtsp address for video streaming
+# https://support.swellpro.com/hc/en-us/articles/5890485717017-SplashDrone-4-SDK
+RTSP_ADDR = "rtsp://192.168.2.220:554"
+
 # TCP client IP
-TCP_CLIENT_IP = '192.168.2.1'
+TCP_CLIENT_ADDR = '192.168.2.1'
 
 # ZMQ pub/sub addresses
 ZMQ_SUB_ADDR = "tcp://localhost:5555"
