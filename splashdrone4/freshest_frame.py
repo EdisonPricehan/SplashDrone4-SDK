@@ -15,12 +15,24 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import sys
+import cv2
 import threading
+from loguru import logger as log
+log.remove()
+log.add(sys.stderr, level="INFO")
 
 
 # acts (partly) like a cv.VideoCapture
 class FreshestFrame(threading.Thread):
-    def __init__(self, capture, name='FreshestFrame'):
+    def __init__(
+            self,
+            capture,
+            th_name='FreshestFrame',
+            record=False,
+            output_path='output.mp4',
+            fps=30.0,
+    ):
         self.capture = capture
         assert self.capture.isOpened()
 
@@ -37,10 +49,14 @@ class FreshestFrame(threading.Thread):
         # if the currently available one is exactly the one you ask for
         self.latestnum = 0
 
-        # this is just for demo purposes
+        # Video recording setup
+        self.recording = record
+        self.video_writer = None
+        self.video_fps = fps
+        self.output_path = output_path
         self.callback = None
 
-        super().__init__(name=name)
+        super().__init__(name=th_name)
         self.start()
 
     def start(self):
@@ -51,9 +67,14 @@ class FreshestFrame(threading.Thread):
         self.running = False
         self.join(timeout=timeout)
         self.capture.release()
+        if self.video_writer is not None:
+            self.video_writer.release()
+            self.video_writer = None
 
     def run(self):
         counter = 0
+        writer_initialized = False
+
         while self.running:
             # block for fresh frame
             (rv, img) = self.capture.read()
@@ -65,6 +86,24 @@ class FreshestFrame(threading.Thread):
                 self.frame = img if rv else None
                 self.latestnum = counter
                 self.cond.notify_all()
+
+            # Initialize writer on first frame if recording requested
+            if self.recording and not writer_initialized and img is not None:
+                h, w = img.shape[:2]
+                frame_size = (w, h)
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                self.video_writer = cv2.VideoWriter(self.output_path, fourcc, self.video_fps, frame_size)
+
+                if not self.video_writer.isOpened():
+                    log.error('Video writer is not opened. Something is wrong.')
+
+                def save_frame_callback(frame):
+                    if self.video_writer is not None and frame is not None:
+                        self.video_writer.write(frame)
+
+                self.callback = save_frame_callback
+                writer_initialized = True
+                log.info(f'Video is recording with frame size {frame_size}...')
 
             if self.callback:
                 self.callback(img)
