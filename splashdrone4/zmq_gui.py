@@ -70,7 +70,7 @@ class ZmqGui:
             self.zmq_interface.ack.updated = False
 
         # Update image in gui
-        imgbytes = self.zmq_interface.img_proc.get()
+        imgbytes = self.zmq_interface.img_proc.get_bytes_img()
         if imgbytes:
             window['-IMAGE-'].update(data=imgbytes)
 

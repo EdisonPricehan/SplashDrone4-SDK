@@ -44,7 +44,7 @@ class ImageProcessor:
         # Use threading to always get the latest frame
         self.fcap = FreshestFrame(vcap)
 
-    def get(self):
+    def get_bytes_img(self):
         if not self.fcap:
             logger.warning('Call init() first!')
             return None

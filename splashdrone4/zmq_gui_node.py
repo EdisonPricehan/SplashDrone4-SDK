@@ -407,7 +407,7 @@ class ZmqGuiNode(Node):
 
                     # Update streamed video frame in GUI
                     if self.enable_video:
-                        imgbytes = self.img_proc.get()
+                        imgbytes = self.img_proc.get_bytes_img()
                         if imgbytes:
                             window['-IMAGE-'].update(data=imgbytes)
 
