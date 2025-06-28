@@ -23,9 +23,9 @@ import zmq
 import time
 import numpy as np
 from typing import Optional, List, Union, Tuple
-from loguru import logger
-logger.remove()
-logger.add(sys.stderr, level="INFO")
+from loguru import logger as log
+log.remove()
+log.add(sys.stderr, level="INFO")
 import subprocess
 
 # Local packages
@@ -70,14 +70,14 @@ class ZmqInterface:
             # Init TCP communication process
             tcp_client_install_path = 'install/splashdrone/lib/splashdrone/tcp_client'
             tcp_client_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../..', tcp_client_install_path)
-            logger.info(f'TCP client path: {tcp_client_path}')
+            log.info(f'TCP client path: {tcp_client_path}')
             assert os.path.exists(tcp_client_path), (f'TCP client path {tcp_client_path} does not exist, '
                                                      f'make sure you have built the ROS2 package using '
                                                      f'"colcon build --symlink-install"!')
 
             # Start the TCP client process
             self.tcp_client_process = subprocess.Popen([tcp_client_path, TCP_CLIENT_ADDR])
-            logger.info('TCP client process started.')
+            log.info('TCP client process started.')
 
         # Init all reports (received from drone)
         self.fly_report = FlyReport()
@@ -113,23 +113,23 @@ class ZmqInterface:
         # Init image processor
         self.img_proc = ImageProcessor(height=img_height, width=img_width)
         self.img_proc.init()  # blocking operation until received image stream
-        logger.info('Image processor initialized and ready to receive images.')
+        log.info('Image processor initialized and ready to receive images.')
 
         # Create ZMQ context
         self.context = zmq.Context()
-        logger.info('ZMQ context created!')
+        log.info('ZMQ context created!')
 
         # Init ZMQ publisher
         self.pub = self.context.socket(zmq.PUB)
         self.pub.bind(ZMQ_PUB_ADDR)
-        logger.info(f'ZMQ publisher bound to {ZMQ_PUB_ADDR}!')
+        log.info(f'ZMQ publisher bound to {ZMQ_PUB_ADDR}!')
 
         # Init ZMQ subscribers
         self.sub1 = self.create_sub_and_connect(TOPIC_FLY_REPORT)
         self.sub2 = self.create_sub_and_connect(TOPIC_BATTERY_REPORT)
         self.sub3 = self.create_sub_and_connect(TOPIC_GIMBAL_REPORT)
         self.sub4 = self.create_sub_and_connect(TOPIC_ACK)
-        logger.info('ZMQ subscribers created and connected!')
+        log.info('ZMQ subscribers created and connected!')
 
         # Create mapping from topic name to tuple (format, sub socket, report variable)
         self.topic2tuple = {TOPIC_FLY_REPORT: (FORMAT_FLY_REPORT, self.sub1, self.fly_report),
@@ -150,12 +150,12 @@ class ZmqInterface:
                     report_tuple = struct.unpack(fmt, data_buffer)
                     report.update(report_tuple)
                 else:
-                    logger.warning("Topic name mismatched!")
+                    log.warning("Topic name mismatched!")
             except zmq.ZMQError as e:
                 if e.errno == zmq.EAGAIN:
                     pass  # no message was ready (yet!)
                 else:
-                    logger.error(str(e))
+                    log.error(str(e))
 
     def create_sub_and_connect(self, topic: str) -> zmq.Socket:
         sub = self.context.socket(zmq.SUB)
@@ -163,7 +163,7 @@ class ZmqInterface:
         sub.setsockopt(zmq.LINGER, 0)
         # sub.setsockopt(zmq.CONFLATE, 1)
         sub.connect(ZMQ_SUB_ADDR)
-        logger.info(f"Sub to {topic} connected!")
+        log.info(f"Sub to {topic} connected!")
         return sub
 
     def get_img(self) -> Optional[np.ndarray]:
@@ -174,25 +174,28 @@ class ZmqInterface:
         self.img = self.img_proc.get_cv_img()
 
         if self.img is None:
-            logger.warning("Image is None, please check the image stream.")
+            log.warning("Image is None, please check the image stream.")
         else:
-            logger.debug(f'Image received with shape: {self.img.shape}, dtype: {self.img.dtype}')
+            log.debug(f'Image received with shape: {self.img.shape}, dtype: {self.img.dtype}')
 
         return self.img
 
-    def get_gps_with_yaw(self, use_camera_heading: bool = True) -> WayPointWithYaw:
+    def get_gps_with_yaw(self, use_camera_heading: bool = True) -> Optional[WayPointWithYaw]:
         """
         Get the current gps location and drone compass (angle relative to earth north, -180 to 180).
         :param use_camera_offset: Use camera heading if True, otherwise drone heading.
         :return: WayPointWithYaw
         """
-        waypoint_with_yaw = WayPointWithYaw(
-            lat=self.fly_report.Lat / 1e7,
-            lon=self.fly_report.Lon / 1e7,
-            yaw=self.fly_report.ATTYaw + (self.camera_yaw_offset if use_camera_heading else 0),
-        )
-
-        return waypoint_with_yaw
+        if self.fly_report.updated:
+            waypoint_with_yaw = WayPointWithYaw(
+                lat=self.fly_report.Lat / 1e7,
+                lon=self.fly_report.Lon / 1e7,
+                yaw=self.fly_report.ATTYaw + (self.camera_yaw_offset if use_camera_heading else 0),
+            )
+            return waypoint_with_yaw
+        else:
+            log.warning('Fly report is not updated when getting waypoint with yaw.')
+            return None
 
     def reset(self):
         """
@@ -217,17 +220,17 @@ class ZmqInterface:
         else:
             raise TypeError(f"Action must be a List or np.ndarray, got {type(action)}")
 
-        logger.info(f"Action received: {a}")
+        log.info(f"Action received: {a}")
 
         # Update reports from drone
         self.update_reports()
 
         if not self.fly_report.updated:
-            logger.warning("Fly report not updated, waiting for new report...")
+            log.warning("Fly report not updated, waiting for new report...")
             return
 
         if not self.debug and self.fly_report.GpsNum < 9:
-            logger.warning(f"GPS number {self.fly_report.GpsNum} is less than 9, waiting for better GPS signal...")
+            log.warning(f"GPS number {self.fly_report.GpsNum} is less than 9, waiting for better GPS signal...")
             return
 
         # Get relative distances in 3D space
@@ -237,7 +240,7 @@ class ZmqInterface:
         if abs(theta) > 1e-3:
             self.camera_yaw_offset += theta
             self.set_gimbal(yaw=self.camera_yaw_offset)
-            # logger.info(f"Gimbal yaw set to: {self.camera_yaw_offset}")
+            # log.info(f"Gimbal yaw set to: {self.camera_yaw_offset}")
 
             self.gimbal_report.updated = False
         # Waypoint control
@@ -303,7 +306,7 @@ class ZmqInterface:
 
         takeoff = TakeOff(height=height)
         self.pub.send(takeoff.getPacked())
-        logger.info(f"Takeoff command sent with height {height}.")
+        log.info(f"Takeoff command sent with height {height}.")
 
     def land(self):
         """
@@ -312,7 +315,7 @@ class ZmqInterface:
         """
         land = Land()
         self.pub.send(land.getPacked())
-        logger.info("Land command sent.")
+        log.info("Land command sent.")
 
     def return_home(self):
         """
@@ -321,7 +324,7 @@ class ZmqInterface:
         """
         return_home = ReturnToHome()
         self.pub.send(return_home.getPacked())
-        logger.info("Return home command sent.")
+        log.info("Return home command sent.")
 
     def set_ext_dev(
             self,
@@ -343,7 +346,7 @@ class ZmqInterface:
         self.ext_dev_onoff.strobe_light = strobe_light_on
         self.ext_dev_onoff.arm_light = arm_light_on
         self.pub.send(self.ext_dev_onoff.getPacked())
-        logger.info(f"External devices set: "
+        log.info(f"External devices set: "
                     f"PLR1={plr1_on}, "
                     f"PLR2={plr2_on}, "
                     f"Strobe Light={strobe_light_on}, "
@@ -369,7 +372,7 @@ class ZmqInterface:
         if yaw is not None:
             self.gimbal_control.yaw = int(yaw)
         self.pub.send(self.gimbal_control.getPacked())
-        logger.info(f"Gimbal control set: "
+        log.info(f"Gimbal control set: "
                     f"Roll={self.gimbal_control.roll}, "
                     f"Pitch={self.gimbal_control.pitch}, "
                     f"Yaw={self.gimbal_control.yaw}.")
@@ -383,16 +386,16 @@ class ZmqInterface:
         """
         if take_photo:
             self.camera_control.take_photo = True
-            logger.info("Camera set to take photo.")
+            log.info("Camera set to take photo.")
         else:
             self.camera_control.take_photo = False
 
         if start_video:
             self.camera_control.start_video = True
-            logger.info("Camera set to start video recording.")
+            log.info("Camera set to start video recording.")
         else:
             self.camera_control.start_video = False
-            logger.info("Camera set to stop video recording.")
+            log.info("Camera set to stop video recording.")
 
         self.pub.send(self.camera_control.getPacked())
 
@@ -401,18 +404,18 @@ class ZmqInterface:
         if hasattr(self, 'tcp_client_process') and self.tcp_client_process.poll() is None:
             self.tcp_client_process.terminate()
             self.tcp_client_process.wait()
-            logger.info('TCP client process terminated.')
+            log.info('TCP client process terminated.')
 
         # Close ZMQ sockets
         for sub in [self.sub1, self.sub2, self.sub3, self.sub4]:
             sub.close()
         self.pub.close()
         self.context.term()
-        logger.info('ZMQ sockets closed and context terminated.')
+        log.info('ZMQ sockets closed and context terminated.')
 
         # Close image processor
         self.img_proc.release()
-        logger.info('Image processor closed.')
+        log.info('Image processor closed.')
 
     def __del__(self):
         self.close()
@@ -430,18 +433,18 @@ if __name__ == '__main__':
     #         cv2.waitKey(10)
     #         i += 1
     # except KeyboardInterrupt:
-    #     logger.info("Keyboard interrupt received.")
+    #     log.info("Keyboard interrupt received.")
     #     zmq_interface.close()
 
     # Test external devices
     try:
         while True:
             zmq_interface.set_ext_dev(plr1_on=False, plr2_on=False, strobe_light_on=True, arm_light_on=True)
-            logger.info("Strobe light and arm light turned on for 3 seconds.")
+            log.info("Strobe light and arm light turned on for 3 seconds.")
             time.sleep(3)
             zmq_interface.set_ext_dev(plr1_on=False, plr2_on=False, strobe_light_on=False, arm_light_on=False)
-            logger.info("Strobe light and arm light turned off for 3 seconds.")
+            log.info("Strobe light and arm light turned off for 3 seconds.")
             time.sleep(3)
     except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received.")
+        log.info("Keyboard interrupt received.")
         zmq_interface.close()
