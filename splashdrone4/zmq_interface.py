@@ -107,7 +107,8 @@ class ZmqInterface:
         # Init runtime variables
         self.m3d_waypoints = []  # movement in 3d, each item is relative position in meter (x, y, z) - NOT WORKING
         self.mission_waypoints = []  # waypoint as (lat, lon, hover_time), need to specify fly speed and altitude first
-        self.img = None
+        self.img = None  # Current image from drone camera
+        self.waypoint_with_yaw = None  # Current gps and yaw of drone
         self.camera_yaw_offset = 0.  # yaw change in degrees of drone camera
 
         # Init image processor
@@ -187,15 +188,14 @@ class ZmqInterface:
         :return: WayPointWithYaw
         """
         if self.fly_report.updated:
-            waypoint_with_yaw = WayPointWithYaw(
+            self.waypoint_with_yaw = WayPointWithYaw(
                 lat=self.fly_report.Lat / 1e7,
                 lon=self.fly_report.Lon / 1e7,
                 yaw=self.fly_report.ATTYaw + (self.camera_yaw_offset if use_camera_heading else 0),
             )
-            return waypoint_with_yaw
         else:
-            log.warning('Fly report is not updated when getting waypoint with yaw.')
-            return None
+            log.debug('Fly report is not updated when getting waypoint with yaw.')
+        return self.waypoint_with_yaw
 
     def reset(self):
         """
