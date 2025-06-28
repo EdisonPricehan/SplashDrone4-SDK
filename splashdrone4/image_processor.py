@@ -13,40 +13,51 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-
+import os.path
+import sys
 import time
 import cv2
-from loguru import logger
+from datetime import datetime
+from loguru import logger as log
+log.remove()
+log.add(sys.stderr, level="INFO")
 
 from splashdrone4.freshest_frame import FreshestFrame
 from splashdrone4.constants import RTSP_ADDR
 
 
 class ImageProcessor:
-    def __init__(self, height: int = 480, width: int = 640):
+    def __init__(
+            self,
+            height: int = 480,
+            width: int = 640,
+            record_video: bool = True,
+    ):
         self.fcap = None
         self.h = height
         self.w = width
+        self.record_video = record_video
 
     def init(self):
         # Get RTSP streamed video
         vcap = cv2.VideoCapture(RTSP_ADDR)
         while not vcap.isOpened():
-            logger.warning('Cannot open RTSP stream, waiting ...')
+            log.warning('Cannot open RTSP stream, waiting ...')
             time.sleep(1)
         vcap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         vcap.set(cv2.CAP_PROP_FRAME_WIDTH, self.w)
         vcap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.h)
         fps = vcap.get(cv2.CAP_PROP_FPS)
-        logger.info(f'RTSP stream available, fps {fps}, height: {self.h}, width: {self.w}!')
+        log.info(f'RTSP stream available, fps {fps}, height: {self.h}, width: {self.w}!')
 
         # Use threading to always get the latest frame
-        self.fcap = FreshestFrame(vcap)
+        video_filename: str = f'video_{datetime.now().strftime("%Y%m%d_%H%M%S")}.mp4'
+        video_path: str = os.path.join(os.path.dirname(__file__), f'../videos/{video_filename}')
+        self.fcap = FreshestFrame(vcap, record=self.record_video, output_path=video_path)
 
     def get_bytes_img(self):
         if not self.fcap:
-            logger.warning('Call init() first!')
+            log.warning('Call init() first!')
             return None
 
         ret, frame = self.fcap.read()
@@ -55,12 +66,12 @@ class ImageProcessor:
             imgbytes = cv2.imencode('.ppm', frame)[1].tobytes()
             return imgbytes
         else:
-            logger.warning("RTSP frame is empty!")
+            log.warning("RTSP frame is empty!")
             return None
 
     def get_cv_img(self):
         if not self.fcap:
-            logger.warning('Call init() first!')
+            log.warning('Call init() first!')
             return None
 
         ret, frame = self.fcap.read()
@@ -72,4 +83,4 @@ class ImageProcessor:
 
     def release(self):
         self.fcap.release()
-        logger.info('Released RTSP stream.')
+        log.info('Released RTSP stream.')
