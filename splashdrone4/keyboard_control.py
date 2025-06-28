@@ -18,6 +18,8 @@
 from splashdrone4.zmq_interface import ZmqInterface
 from splashdrone4.key2action import Key2Action
 from splashdrone4.data_logger import DataLogger
+from splashdrone4.constants import IMG_HEIGHT, IMG_WIDTH, ACTION_DIM
+from splashdrone4.definitions import WayPointWithYaw
 
 import sys
 import cv2
@@ -104,7 +106,9 @@ class KeyboardControl:
             log.info(f'Agent action received: {action}')
 
         ep_reset, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
+
         img = self.get_img(show=True)
+        wp_yaw = self.zmq_interface.get_gps_with_yaw(use_camera_heading=True)
         while not acted:  # acted is for internal check of whether a meaningful command has been received
             # Update the most recent image, a blocking call
             img = self.get_img(show=True)
@@ -178,6 +182,24 @@ class KeyboardControl:
 
         return reset_episode, g2g, acted, overlaid, action if overlaid else action_policy
 
+    def log_data(
+            self,
+            wp_yaw: Optional[WayPointWithYaw] = None,
+            image: Optional[np.ndarray] = None,
+            mask: Optional[np.ndarray] = None,
+            action: List[int] = None,
+            overlaid: bool = False,
+    ):
+        if self.save_data:
+            self.data_logger.log_data(
+                timestamp=datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
+                wp_yaw=np.zeros((3,)) if wp_yaw is None else np.array([wp_yaw.lat, wp_yaw.lon, wp_yaw.yaw]),
+                image=self.img if image is None else image,
+                mask=np.zeros((IMG_HEIGHT, IMG_WIDTH)) if mask is None else mask,
+                action=np.ones(ACTION_DIM) if action is None else np.array(action),
+                overlaid=overlaid,
+            )
+
     def run(self):
         while True:
             # Get control input from keyboard while updating the image
@@ -185,12 +207,7 @@ class KeyboardControl:
             log.info(f'Action taken: {action}')
 
             # Save data if required
-            if self.save_data:
-                self.data_logger.log_data(
-                    timestamp=datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
-                    image=self.img,
-                    action=np.array(action),
-                )
+            self.log_data()
 
     def close(self):
         self.zmq_interface.close()
