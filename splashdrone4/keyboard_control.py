@@ -119,6 +119,7 @@ class KeyboardControl:
             log.debug("Waiting for action input...")
             ep_reset, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
 
+        log.info(f'lat: {wp_yaw.lat}, lon: {wp_yaw.lon}, yaw: {wp_yaw.yaw}')
         return img, wp_yaw, ep_reset, g2g, overlaid, action_taken
 
     def _keyboard_act(self, action_policy: Optional[List[int]] = None):
@@ -207,7 +208,13 @@ class KeyboardControl:
             log.info(f'Action taken: {action}')
 
             # Save data if required
-            self.log_data()
+            self.log_data(
+                wp_yaw=wp_yaw,
+                image=img,
+                mask=None,
+                action=action,
+                overlaid=overlaid,
+            )
 
     def close(self):
         self.zmq_interface.close()
@@ -219,7 +226,7 @@ class KeyboardControl:
 
 
 if __name__ == "__main__":
-    keyboard_control = KeyboardControl(save_data=False, data_len=10, debug=True)
+    keyboard_control = KeyboardControl(save_data=True, data_len=10, debug=True)
 
     try:
         keyboard_control.run()
