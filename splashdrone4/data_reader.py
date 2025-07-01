@@ -19,6 +19,8 @@ import os
 import sys
 import h5py
 import cv2
+import folium
+import numpy as np
 from tqdm import tqdm
 from typing import List
 from loguru import logger as log
@@ -67,6 +69,45 @@ class DataReader:
         log.info(f'Loaded {len(next(iter(data.values())))} records from {len(self.filenames)} files.')
         return data
 
+    def save_wps_to_map(self, map_name: str = 'waypoints_map.html'):
+        if 'wp_yaw' not in self.data:
+            log.warning(f'No waypoint_with_yaw in data.')
+            return
+
+        # Get waypoints
+        wpy_list = self.data['wp_yaw']
+        latitudes = [wpy[0] for wpy in wpy_list]
+        longitudes = [wpy[1] for wpy in wpy_list]
+
+        # Center map at the mean location
+        center = [np.mean(latitudes), np.mean(longitudes)]
+        m = folium.Map(location=center, zoom_start=16)
+
+        # Add waypoints as a polyline
+        folium.PolyLine(list(zip(latitudes, longitudes)), color="blue", weight=2.5, opacity=1).add_to(m)
+
+        # Mark start (green) and stop (red) waypoints
+        if latitudes and longitudes:
+            folium.Marker(
+                location=[latitudes[0], longitudes[0]],
+                popup="Start",
+                icon=folium.Icon(color="green", icon="play")
+            ).add_to(m)
+            folium.Marker(
+                location=[latitudes[-1], longitudes[-1]],
+                popup="Stop",
+                icon=folium.Icon(color="red", icon="stop")
+            ).add_to(m)
+
+        # Add small red circles for intermediate waypoints
+        for lat, lon in zip(latitudes[1:-1], longitudes[1:-1]):
+            folium.CircleMarker(location=[lat, lon], radius=2, color='red').add_to(m)
+
+        # Save to HTML and open in browser
+        map_path: str = os.path.join(os.path.dirname(__file__), f'../maps/{map_name}')
+        m.save(map_path)
+        log.info(f'Waypoints map is saved as {map_path}.')
+
     def play(self):
         """
         Play the logged data by displaying images and printing actions.
@@ -86,7 +127,7 @@ class DataReader:
             overlaid = self.data['overlaid'][i] if 'overlaid' in self.data else None
             log.info(f'Timestamp: {timestamp}, Action: {action}, WP-Yaw: {wp_yaw}, Overlaid: {overlaid}')
 
-            cv2.waitKey(1000)
+            cv2.waitKey(1000)  # Wait for 1 second
 
 
 if __name__ == "__main__":
@@ -105,17 +146,51 @@ if __name__ == "__main__":
     #     '../data/data_log_20250620_142153.h5',
     #     '../data/data_log_20250620_142237.h5',
     # ]
+    # data_files = [
+    #     '../data/data_log_20250628_153349.h5',
+    #     '../data/data_log_20250628_153519.h5',
+    #     '../data/data_log_20250628_153746.h5',
+    #     '../data/data_log_20250628_153901.h5',
+    # ]
+    # data_files = [
+    #     '../data/data_log_20250629_165027.h5',
+    #     '../data/data_log_20250629_165126.h5',
+    # ]
+
+    # Wabash River upstream 06/30
+    # data_files = [
+    #     '../data/data_log_20250630_101219.h5',
+    #     '../data/data_log_20250630_101532.h5',
+    #     '../data/data_log_20250630_101725.h5',
+    #     '../data/data_log_20250630_101841.h5',
+    #     '../data/data_log_20250630_102007.h5',
+    #     '../data/data_log_20250630_102139.h5',
+    #     '../data/data_log_20250630_102311.h5',
+    #     '../data/data_log_20250630_102431.h5',
+    #     '../data/data_log_20250630_102538.h5',
+    #     '../data/data_log_20250630_102652.h5',
+    # ]
+
+    # Wabash River downstream 06/30
     data_files = [
-        '../data/data_log_20250628_153349.h5',
-        '../data/data_log_20250628_153519.h5',
-        '../data/data_log_20250628_153746.h5',
-        '../data/data_log_20250628_153901.h5',
+        '../data/data_log_20250630_103652.h5',
+        '../data/data_log_20250630_103913.h5',
+        '../data/data_log_20250630_104021.h5',
+        '../data/data_log_20250630_104128.h5',
+        '../data/data_log_20250630_104233.h5',
+        '../data/data_log_20250630_104347.h5',
+        '../data/data_log_20250630_104454.h5',
+        '../data/data_log_20250630_104605.h5',
+        # '../data/data_log_20250630_104720.h5',
+        # '../data/data_log_20250630_105001.h5',
     ]
 
     reader = DataReader(filenames=data_files)
 
     try:
         reader.play()
+        # reader.save_wps_to_map(map_name='wabash_upstream.html')
+        # reader.save_wps_to_map(map_name='wabash_downstream.html')
     except KeyboardInterrupt:
         log.warning("Playback interrupted by user.")
     finally:
