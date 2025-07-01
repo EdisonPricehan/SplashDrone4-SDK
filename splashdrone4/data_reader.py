@@ -21,6 +21,8 @@ import h5py
 import cv2
 import folium
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from tqdm import tqdm
 from typing import List
 from loguru import logger as log
@@ -71,40 +73,54 @@ class DataReader:
 
     def save_wps_to_map(self, map_name: str = 'waypoints_map.html'):
         if 'wp_yaw' not in self.data:
-            log.warning(f'No waypoint_with_yaw in data.')
+            log.warning('No waypoint_with_yaw in data.')
             return
 
-        # Get waypoints
         wpy_list = self.data['wp_yaw']
+        overlaid_list = self.data.get('overlaid', [0] * len(wpy_list))
+
         latitudes = [wpy[0] for wpy in wpy_list]
         longitudes = [wpy[1] for wpy in wpy_list]
+        yaws = [wpy[2] for wpy in wpy_list]
 
-        # Center map at the mean location
         center = [np.mean(latitudes), np.mean(longitudes)]
         m = folium.Map(location=center, zoom_start=16)
 
-        # Add waypoints as a polyline
-        folium.PolyLine(list(zip(latitudes, longitudes)), color="blue", weight=2.5, opacity=1).add_to(m)
-
-        # Mark start (green) and stop (red) waypoints
+        # Start marker: green play icon
         if latitudes and longitudes:
             folium.Marker(
                 location=[latitudes[0], longitudes[0]],
                 popup="Start",
                 icon=folium.Icon(color="green", icon="play")
             ).add_to(m)
+
+            # End marker: red stop icon
             folium.Marker(
                 location=[latitudes[-1], longitudes[-1]],
-                popup="Stop",
+                popup="End",
                 icon=folium.Icon(color="red", icon="stop")
             ).add_to(m)
 
-        # Add small red circles for intermediate waypoints
-        for lat, lon in zip(latitudes[1:-1], longitudes[1:-1]):
-            folium.CircleMarker(location=[lat, lon], radius=2, color='red').add_to(m)
+        # Intermediate waypoints as circle markers with different colors
+        for idx, (lat, lon, yaw) in enumerate(zip(latitudes, longitudes, yaws)):
+            if idx == 0 or idx == len(latitudes) - 1:
+                continue  # Skip start/end
+            overlaid = overlaid_list[idx] if idx < len(overlaid_list) else 0
+            color = '#1976d2' if overlaid else '#757575'
+            folium.CircleMarker(
+                location=[lat, lon],
+                radius=5,
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.9,
+                popup=f"Yaw: {yaw:.2f}\nOverlaid: {overlaid}"
+            ).add_to(m)
 
-        # Save to HTML and open in browser
-        map_path: str = os.path.join(os.path.dirname(__file__), f'../maps/{map_name}')
+        # Polyline for path
+        folium.PolyLine(list(zip(latitudes, longitudes)), color="blue", weight=2.5, opacity=1).add_to(m)
+
+        map_path = os.path.join(os.path.dirname(__file__), f'../maps/{map_name}')
         m.save(map_path)
         log.info(f'Waypoints map is saved as {map_path}.')
 
@@ -128,6 +144,57 @@ class DataReader:
             log.info(f'Timestamp: {timestamp}, Action: {action}, WP-Yaw: {wp_yaw}, Overlaid: {overlaid}')
 
             cv2.waitKey(1000)  # Wait for 1 second
+
+    def save_as_video(self, video_path: str = 'hitl_video.mp4', fps: int = 1):
+        n = len(next(iter(self.data.values())))
+        height, width = self.data['image'][0].shape[:2]
+        fig_height = 1.2 * height  # Extra space for text
+        fig_width = 2 * width
+
+        video_writer = cv2.VideoWriter(
+            video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (int(fig_width), int(fig_height))
+        )
+
+        for i in tqdm(range(n)):
+            img = self.data['image'][i]
+            mask = self.data['mask'][i] if 'mask' in self.data else np.zeros_like(img)
+            timestamp = self.data['timestamp'][i].decode() if 'timestamp' in self.data else ''
+            action = str(self.data['action'][i]) if 'action' in self.data else ''
+            overlaid = str(self.data['overlaid'][i]) if 'overlaid' in self.data else ''
+
+            # Prepare mask for display
+            if mask.ndim == 2:
+                mask_rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
+            else:
+                mask_rgb = mask
+
+            # Create figure
+            fig, axs = plt.subplots(2, 1, figsize=(fig_width / 100, fig_height / 100),
+                                    gridspec_kw={'height_ratios': [0.2, 1]})
+            fig.subplots_adjust(hspace=0.05, top=0.95, bottom=0.05)
+
+            # Text subplot
+            axs[0].axis('off')
+            text = f'Time: {timestamp}\nAction: {action}\nOverlaid: {overlaid}'
+            axs[0].text(0.5, 0.5, text, ha='center', va='center', fontsize=6, wrap=True)
+
+            # Image+mask subplot
+            axs[1].imshow(np.hstack((img, mask_rgb)))
+            axs[1].axis('off')
+
+            # Render to numpy array using buffer_rgba
+            canvas = FigureCanvas(fig)
+            canvas.draw()
+            frame = np.frombuffer(canvas.buffer_rgba(), dtype=np.uint8)
+            frame = frame.reshape(fig.canvas.get_width_height()[::-1] + (4,))
+            frame_rgb = frame[..., :3]  # Drop alpha channel
+            plt.close(fig)
+
+            # Resize to match video size
+            frame_rgb = cv2.resize(frame_rgb, (int(fig_width), int(fig_height)))
+            video_writer.write(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+
+        video_writer.release()
 
 
 if __name__ == "__main__":
@@ -188,7 +255,14 @@ if __name__ == "__main__":
     reader = DataReader(filenames=data_files)
 
     try:
+        # Usage 1: show logged image, mask and actions
         reader.play()
+
+        # Usage 2: save them as a video
+        # reader.save_as_video(video_path='wabash_uptream_hitl.mp4', fps=1)
+        # reader.save_as_video(video_path='wabash_downstream_hitl.mp4', fps=1)
+
+        # Usage 3: save waypoints to map
         # reader.save_wps_to_map(map_name='wabash_upstream.html')
         # reader.save_wps_to_map(map_name='wabash_downstream.html')
     except KeyboardInterrupt:
