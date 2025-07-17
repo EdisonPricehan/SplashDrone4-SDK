@@ -23,6 +23,8 @@ import folium
 import numpy as np
 from tqdm import tqdm
 from typing import List
+from PIL import Image
+import piexif
 from loguru import logger as log
 log.remove()
 log.add(sys.stderr, level="INFO")
@@ -108,6 +110,31 @@ class DataReader:
         m.save(map_path)
         log.info(f'Waypoints map is saved as {map_path}.')
 
+    def save_image_with_exif(self, out_dir='../images_exif'):
+        os.makedirs(out_dir, exist_ok=True)
+        for i, (t, img_rgb, wp) in enumerate(zip(self.data['timestamp'], self.data['image'], self.data['wp_yaw'])):
+            lat, lon = wp[:2]
+            img = Image.fromarray(img_rgb)
+
+            def _deg_to_dms_rational(deg):
+                # convert decimal degrees to rational DMS
+                d = int(deg)
+                m = int((deg - d) * 60)
+                s = int((deg - d - m / 60) * 3600)
+                return ((d, 1), (m, 1), (s, 1))
+
+            gps_ifd = {
+                piexif.GPSIFD.GPSLatitudeRef: b'N' if lat >= 0 else b'S',
+                piexif.GPSIFD.GPSLatitude: _deg_to_dms_rational(abs(lat)),
+                piexif.GPSIFD.GPSLongitudeRef: b'E' if lon >= 0 else b'W',
+                piexif.GPSIFD.GPSLongitude: _deg_to_dms_rational(abs(lon))
+            }
+            exif_dict = {"GPS": gps_ifd}
+            exif_bytes = piexif.dump(exif_dict)
+
+            fname = os.path.join(out_dir, f"{t.decode()}.jpg")
+            img.save(fname, "jpeg", exif=exif_bytes)
+
     def play(self):
         """
         Play the logged data by displaying images and printing actions.
@@ -189,6 +216,7 @@ if __name__ == "__main__":
 
     try:
         reader.play()
+        # reader.save_image_with_exif()
         # reader.save_wps_to_map(map_name='wabash_upstream.html')
         # reader.save_wps_to_map(map_name='wabash_downstream.html')
     except KeyboardInterrupt:
