@@ -204,6 +204,8 @@ class ZmqInterface:
         """
         self.set_gimbal(roll=0, pitch=self.pitch_angle_fixed, yaw=0)
 
+        self.camera_yaw_offset = 0
+
         self.set_ext_dev()
 
     def step(self, action: Union[List, np.ndarray]):
