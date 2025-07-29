@@ -83,7 +83,7 @@ class KeyboardControl:
 
         if show:
             img_bgr = cv2.cvtColor(self.img, cv2.COLOR_RGB2BGR)
-            cv2.imshow('img', img_bgr)
+            cv2.imshow('RTSP Image Stream', img_bgr)
             cv2.waitKey(1)
 
         return self.img
