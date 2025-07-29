@@ -8,3 +8,4 @@ loguru==0.7.3
 h5py==3.14.0
 tqdm==4.67.1
 folium==0.20.0
+piexif==1.1.3
