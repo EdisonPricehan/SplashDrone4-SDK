@@ -109,7 +109,7 @@ class ZmqInterface:
         self.mission_waypoints = []  # waypoint as (lat, lon, hover_time), need to specify fly speed and altitude first
         self.img = None  # Current image from drone camera
         self.waypoint_with_yaw = None  # Current gps and yaw of drone
-        self.camera_yaw_offset = 0.  # yaw change in degrees of drone camera
+        self.camera_yaw_offset = 0.  # yaw change in degrees of drone camera w.r.t. drone heading
 
         # Init image processor
         self.img_proc = ImageProcessor(height=img_height, width=img_width)
@@ -170,7 +170,7 @@ class ZmqInterface:
     def get_img(self) -> Optional[np.ndarray]:
         """
         Get the latest image from the image processor.
-        :return:
+        :return: The latest image in RGB format, or None if no image is available.
         """
         self.img = self.img_proc.get_cv_img()
 
@@ -185,7 +185,7 @@ class ZmqInterface:
         """
         Get the current gps location and drone compass (angle relative to earth north, -180 to 180).
         :param use_camera_offset: Use camera heading if True, otherwise drone heading.
-        :return: WayPointWithYaw
+        :return: WayPointWithYaw object containing latitude, longitude, and yaw, or None if fly report is not updated.
         """
         if self.fly_report.updated:
             self.waypoint_with_yaw = WayPointWithYaw(
@@ -208,7 +208,7 @@ class ZmqInterface:
 
         self.set_ext_dev()
 
-    def step(self, action: Union[List, np.ndarray]):
+    def step(self, action: Union[List, np.ndarray]) -> None:
         """
         Execute the action on the drone.
 
@@ -295,7 +295,7 @@ class ZmqInterface:
 
         return x, y, z, theta
 
-    def take_off(self, height: Optional[float] = None):
+    def take_off(self, height: Optional[float] = None) -> None:
         """
         Send the takeoff command to the drone with a specified height.
         :param height: The height to take off to in meters.
@@ -310,7 +310,7 @@ class ZmqInterface:
         self.pub.send(takeoff.getPacked())
         log.info(f"Takeoff command sent with height {height}.")
 
-    def land(self):
+    def land(self) -> None:
         """
         Send the land command to the drone.
         :return: None
@@ -319,7 +319,7 @@ class ZmqInterface:
         self.pub.send(land.getPacked())
         log.info("Land command sent.")
 
-    def return_home(self):
+    def return_home(self) -> None:
         """
         Send the return home command to the drone.
         :return: None
@@ -334,7 +334,7 @@ class ZmqInterface:
             plr2_on: bool = False,
             strobe_light_on: bool = True,
             arm_light_on: bool = True,
-    ):
+    ) -> None:
         """
         Set the external devices on/off state.
         :param plr1_on: Whether to turn on the first Payload Release (PLR1).
@@ -359,7 +359,7 @@ class ZmqInterface:
             roll: Optional[float] = None,
             pitch: Optional[float] = None,
             yaw: Optional[float] = None,
-    ):
+    ) -> None:
         """
         Set the gimbal control angles.
         :param roll: The roll angle in degrees, if None, it remains as is.
@@ -379,7 +379,7 @@ class ZmqInterface:
                     f"Pitch={self.gimbal_control.pitch}, "
                     f"Yaw={self.gimbal_control.yaw}.")
 
-    def set_camera(self, take_photo: bool = False, start_video: bool = False):
+    def set_camera(self, take_photo: bool = False, start_video: bool = False) -> None:
         """
         Set the camera control to take a photo or start video recording.
         :param take_photo: If True, take a photo.
@@ -401,7 +401,12 @@ class ZmqInterface:
 
         self.pub.send(self.camera_control.getPacked())
 
-    def close(self):
+    def close(self) -> None:
+        """
+        Close the ZMQ interface, including terminating the TCP client process, closing ZMQ sockets, and releasing
+        the image processor.
+        :return: None
+        """
         # Terminate tcp_client process
         if hasattr(self, 'tcp_client_process') and self.tcp_client_process.poll() is None:
             self.tcp_client_process.terminate()

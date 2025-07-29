@@ -16,6 +16,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+"""
+Note: Needs to adapt to zmq_interface.py and zmq_gui.py.
+"""
+
+
 # ROS2 packages
 import rclpy
 from rclpy.node import Node
