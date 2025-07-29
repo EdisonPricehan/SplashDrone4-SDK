@@ -266,18 +266,39 @@ if __name__ == "__main__":
     # ]
 
     # Wabash River downstream 06/30
+    # data_files = [
+    #     '../data/data_log_20250630_103652.h5',
+    #     '../data/data_log_20250630_103913.h5',
+    #     '../data/data_log_20250630_104021.h5',
+    #     '../data/data_log_20250630_104128.h5',
+    #     '../data/data_log_20250630_104233.h5',
+    #     '../data/data_log_20250630_104347.h5',
+    #     '../data/data_log_20250630_104454.h5',
+    #     '../data/data_log_20250630_104605.h5',
+    #     # '../data/data_log_20250630_104720.h5',
+    #     # '../data/data_log_20250630_105001.h5',
+    # ]
+
+    # Wabash River upstream 07/29
     data_files = [
-        '../data/data_log_20250630_103652.h5',
-        '../data/data_log_20250630_103913.h5',
-        '../data/data_log_20250630_104021.h5',
-        '../data/data_log_20250630_104128.h5',
-        '../data/data_log_20250630_104233.h5',
-        '../data/data_log_20250630_104347.h5',
-        '../data/data_log_20250630_104454.h5',
-        '../data/data_log_20250630_104605.h5',
-        # '../data/data_log_20250630_104720.h5',
-        # '../data/data_log_20250630_105001.h5',
+        '../data/data_log_19691231_190423.h5',
+        '../data/data_log_19691231_190629.h5',
+        '../data/data_log_19691231_190751.h5',
+        '../data/data_log_19691231_190929.h5',
+        '../data/data_log_19691231_191039.h5',
+        '../data/data_log_19691231_191152.h5',
     ]
+
+    # Wabash River downstream 07/29
+    # data_files = [
+    #     '../data/data_log_20250729_192610.h5',
+    #     '../data/data_log_20250729_192904.h5',
+    #     '../data/data_log_20250729_193044.h5',
+    #     '../data/data_log_20250729_193243.h5',
+    #     '../data/data_log_20250729_193428.h5',
+    #     '../data/data_log_20250729_193631.h5',
+    #     '../data/data_log_20250729_193755.h5',
+    # ]
 
     reader = DataReader(filenames=data_files)
 
@@ -286,12 +307,12 @@ if __name__ == "__main__":
         reader.play()
 
         # Usage 2: save them as a video
-        # reader.save_as_video(video_path='wabash_uptream_hitl.mp4', fps=1)
-        # reader.save_as_video(video_path='wabash_downstream_hitl.mp4', fps=1)
+        # reader.save_as_video(video_path='../videos/wabash_uptream_hitl_0729.mp4', fps=1)
+        # reader.save_as_video(video_path='../videos/wabash_downstream_hitl_0729.mp4', fps=1)
 
         # Usage 3: save waypoints to map
-        # reader.save_wps_to_map(map_name='wabash_upstream.html')
-        # reader.save_wps_to_map(map_name='wabash_downstream.html')
+        # reader.save_wps_to_map(map_name='wabash_upstream_0729.html')
+        # reader.save_wps_to_map(map_name='wabash_downstream_0729.html')
 
         # Usage 4: Save image with exif meta data
         # reader.save_image_with_exif()
