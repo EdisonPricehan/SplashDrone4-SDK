@@ -1,0 +1,21 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: SplashDrone 4 SDK with ROS1/2 Integration
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Zihan
+    family-names: Wang
+    email: wang5044@purdue.edu
+    # name-particle: Zihan
+    affiliation: Purdue University
+    orcid: 'https://orcid.org/0000-0001-7527-5955'
+repository-code: 'https://github.com/EdisonPricehan/SplashDrone4-ros'
+keywords:
+  - SplashDrone 4 SDK
+  - ROS1/2
+license: GPL-3.0
