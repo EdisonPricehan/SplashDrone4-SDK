@@ -126,8 +126,17 @@ class DataReader:
         m.save(map_path)
         log.info(f'Waypoints map is saved as {map_path}.')
 
-    def save_image_with_exif(self, out_dir='../images_exif'):
+    def save_image_with_exif(self, out_dir='../images_exif', mask_out_dir='../masks') -> None:
+        """
+        Save images with EXIF metadata containing GPS coordinates, as well as corresponding masks if available.
+
+        :param out_dir: image output directory where images will be saved.
+        :param mask_out_dir: mask output directory where masks will be saved.
+        :return: None
+        """
         os.makedirs(out_dir, exist_ok=True)
+        os.makedirs(mask_out_dir, exist_ok=True)
+
         for i, (t, img_rgb, wp) in enumerate(zip(self.data['timestamp'], self.data['image'], self.data['wp_yaw'])):
             lat, lon = wp[:2]
             img = Image.fromarray(img_rgb)
@@ -150,6 +159,13 @@ class DataReader:
 
             fname = os.path.join(out_dir, f"{t.decode()}.jpg")
             img.save(fname, "jpeg", exif=exif_bytes)
+
+            # Save corresponding mask if available
+            if 'mask' in self.data:
+                mask = self.data['mask'][i]
+                mask_img = Image.fromarray(mask)
+                mask_fname = os.path.join(mask_out_dir, f"{t.decode()}.png")
+                mask_img.save(mask_fname, "PNG")
 
     def play(self):
         """
@@ -321,7 +337,3 @@ if __name__ == "__main__":
         log.warning("Playback interrupted by user.")
     finally:
         cv2.destroyAllWindows()
-
-
-
-
