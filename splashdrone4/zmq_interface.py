@@ -40,15 +40,16 @@ class ZmqInterface:
             self,
             img_height: int = 128,
             img_width: int = 128,
-            long_dist: float = 5.,
-            lat_dist: float = 3.,
-            vert_dist: float = 2.,
+            long_dist: float = 10.,
+            lat_dist: float = 5.,
+            vert_dist: float = 5.,
             yaw_angle: float = 15.,
             pitch_angle_fixed: float = 15.,
             takeoff_height_default: float = 5.,
             hori_speed: float = 3.,
             vert_speed: float = 0.5,
             start_tcp_client: bool = True,
+            use_init_heading: bool = False,
             debug: bool = False,
     ):
         """
@@ -64,6 +65,8 @@ class ZmqInterface:
         :param hori_speed: horizontal speed for movement in meters per second.
         :param vert_speed: vertical speed for movement in meters per second.
         :param start_tcp_client: If True, starts the TCP client process to communicate with the drone.
+        :param use_init_heading: If True, uses the initial heading of the drone for yaw calculations;
+        otherwise uses the up-to-date heading.
         :param debug: If True, does not check GPS number, for indoor testing or non-flight commands.
         """
         if start_tcp_client:
@@ -84,6 +87,8 @@ class ZmqInterface:
         self.battery_report = BatteryReport()
         self.gimbal_report = GimbalReport()
         self.ack = Ack()
+        self.drone_heading = 0.
+        self.drone_heading_init: bool = False
 
         # Init control commands that vary (sent to drone)
         self.ext_dev_onoff = ExtDevOnOff()
@@ -102,6 +107,7 @@ class ZmqInterface:
         self.hori_speed = hori_speed
         self.vert_speed = vert_speed
         self.start_tcp_client = start_tcp_client
+        self.use_init_heading = use_init_heading
         self.debug = debug
 
         # Init runtime variables
@@ -188,10 +194,18 @@ class ZmqInterface:
         :return: WayPointWithYaw object containing latitude, longitude, and yaw, or None if fly report is not updated.
         """
         if self.fly_report.updated:
+            if not self.drone_heading_init:
+                self.drone_heading = self.fly_report.ATTYaw
+                log.info(f'Drone initial heading: {self.drone_heading}')
+                self.drone_heading_init = True
+
+            # Set drone camera yaw compensation
+            cam_yaw_offset = self.camera_yaw_offset if use_camera_heading else 0
+
             self.waypoint_with_yaw = WayPointWithYaw(
                 lat=self.fly_report.Lat / 1e7,
                 lon=self.fly_report.Lon / 1e7,
-                yaw=self.fly_report.ATTYaw + (self.camera_yaw_offset if use_camera_heading else 0),
+                yaw=self.drone_heading + cam_yaw_offset if self.use_init_heading else self.fly_report.ATTYaw + cam_yaw_offset
             )
         else:
             log.debug('Fly report is not updated when getting waypoint with yaw.')
