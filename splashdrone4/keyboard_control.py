@@ -188,7 +188,7 @@ class KeyboardControl:
             wp_yaw: Optional[WayPointWithYaw] = None,
             image: Optional[np.ndarray] = None,
             mask: Optional[np.ndarray] = None,
-            action: List[int] = None,
+            action: Optional[np.ndarray] = None,
             overlaid: bool = False,
     ):
         if self.save_data:
@@ -212,7 +212,7 @@ class KeyboardControl:
                 wp_yaw=wp_yaw,
                 image=img,
                 mask=None,
-                action=action,
+                action=np.array(action),
                 overlaid=overlaid,
             )
 
