@@ -86,7 +86,7 @@ class DataReader:
         yaws = [wpy[2] for wpy in wpy_list]
 
         center = [np.mean(latitudes), np.mean(longitudes)]
-        m = folium.Map(location=center, zoom_start=16)
+        m = folium.Map(location=center, zoom_start=16, control_scale=True)
 
         # Start marker: green play icon
         if latitudes and longitudes:
@@ -296,14 +296,14 @@ if __name__ == "__main__":
     # ]
 
     # Wabash River upstream 07/29
-    data_files = [
-        '../data/data_log_19691231_190423.h5',
-        '../data/data_log_19691231_190629.h5',
-        '../data/data_log_19691231_190751.h5',
-        '../data/data_log_19691231_190929.h5',
-        '../data/data_log_19691231_191039.h5',
-        '../data/data_log_19691231_191152.h5',
-    ]
+    # data_files = [
+    #     '../data/data_log_19691231_190423.h5',
+    #     '../data/data_log_19691231_190629.h5',
+    #     '../data/data_log_19691231_190751.h5',
+    #     '../data/data_log_19691231_190929.h5',
+    #     '../data/data_log_19691231_191039.h5',
+    #     '../data/data_log_19691231_191152.h5',
+    # ]
 
     # Wabash River downstream 07/29
     # data_files = [
@@ -316,11 +316,20 @@ if __name__ == "__main__":
     #     '../data/data_log_20250729_193755.h5',
     # ]
 
+    # Wabash River upstream 09/10
+    data_files = [
+        '../data/data_log_20250910_143236.h5',  # battery 1
+        '../data/data_log_19691231_190334.h5',  # battery 2
+        '../data/data_log_20250910_143334.h5',  # battery 3
+        '../data/data_log_20250910_150110.h5',  # battery 4
+        '../data/data_log_20250910_152547.h5',  # battery 5
+    ]
+
     reader = DataReader(filenames=data_files)
 
     try:
         # Usage 1: show logged image, mask and actions
-        reader.play()
+        # reader.play()
 
         # Usage 2: save them as a video
         # reader.save_as_video(video_path='../videos/wabash_uptream_hitl_0729.mp4', fps=1)
@@ -329,6 +338,7 @@ if __name__ == "__main__":
         # Usage 3: save waypoints to map
         # reader.save_wps_to_map(map_name='wabash_upstream_0729.html')
         # reader.save_wps_to_map(map_name='wabash_downstream_0729.html')
+        reader.save_wps_to_map(map_name='wabash_upstream_0910.html')
 
         # Usage 4: Save image with exif meta data
         # reader.save_image_with_exif()
