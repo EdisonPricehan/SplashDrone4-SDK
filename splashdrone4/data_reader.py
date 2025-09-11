@@ -43,14 +43,18 @@ class DataReader:
             log.error('No filenames provided for DataReader.')
             raise ValueError('Filenames list cannot be empty.')
 
+        self.file_lengths: list[int] = []
+        self.file_ranges: list[tuple[int, int]] = []  # [(start_idx, end_idx), ...]
+
         self.data = self._load_data()
 
     def _load_data(self):
         """
-        Load data from the specified HDF5 files.
+        Load data from the specified HDF5 files and record per-file lengths/ranges.
         """
         log.info('Loading data from HDF5 files...')
         data = {}
+        file_lengths = []
 
         for filename in self.filenames:
             if not os.path.exists(filename):
@@ -58,22 +62,37 @@ class DataReader:
                 continue
 
             with h5py.File(filename, 'r') as h5file:
-                count = h5file.attrs.get('count', len(h5file['timestamp']))
+                # prefer explicit attr 'count' if present; otherwise fall back to len(timestamp)
+                default_len = len(h5file['timestamp']) if 'timestamp' in h5file else len(
+                    h5file[next(iter(h5file.keys()))])
+                count = int(h5file.attrs.get('count', default_len))
 
                 for key in h5file.keys():
-                    dataset = h5file[key]
-                    if count is not None:
-                        values = dataset[:count]
-                    else:
-                        values = dataset[:]
+                    ds = h5file[key]
+                    values = ds[:count] if count is not None else ds[:]
                     if key not in data:
                         data[key] = []
                     data[key].extend(values)
 
-        log.info(f'Loaded {len(next(iter(data.values())))} records from {len(self.filenames)} files.')
+                file_lengths.append(count)
+
+        # build per-file index ranges over the concatenated arrays
+        self.file_lengths = file_lengths
+        self.file_ranges = []
+        start = 0
+        for L in file_lengths:
+            self.file_ranges.append((start, start + L))
+            start += L
+
+        total = sum(file_lengths)
+        if total == 0:
+            log.error('No records loaded from the provided files.')
+        else:
+            log.info(f'Loaded {total} records from {len(self.filenames)} files.')
+
         return data
 
-    def save_wps_to_map(self, map_name: str = 'waypoints_map.html'):
+    def save_wps_to_map(self, map_name: str = 'waypoints_map.html', separate_trajectories: bool = False):
         if 'wp_yaw' not in self.data:
             log.warning('No waypoint_with_yaw in data.')
             return
@@ -81,48 +100,138 @@ class DataReader:
         wpy_list = self.data['wp_yaw']
         overlaid_list = self.data.get('overlaid', [0] * len(wpy_list))
 
-        latitudes = [wpy[0] for wpy in wpy_list]
-        longitudes = [wpy[1] for wpy in wpy_list]
-        yaws = [wpy[2] for wpy in wpy_list]
+        # Extract lat/lon/yaw and sanitize
+        def _is_num(x):
+            try:
+                return np.isfinite(float(x))
+            except Exception:
+                return False
 
-        center = [np.mean(latitudes), np.mean(longitudes)]
+        latitudes = []
+        longitudes = []
+        yaws = []
+        valid_idx = []
+        for i, wpy in enumerate(wpy_list):
+            if len(wpy) < 2:
+                continue
+            lat, lon = wpy[0], wpy[1]
+            yaw = wpy[2] if len(wpy) > 2 else 0.0
+            if _is_num(lat) and _is_num(lon):
+                valid_idx.append(i)
+                latitudes.append(float(lat))
+                longitudes.append(float(lon))
+                yaws.append(float(yaw))
+
+        if len(latitudes) == 0:
+            log.warning('No valid waypoints (after sanitization) to plot.')
+            return
+
+        # Align overlaid_list length to sanitized points
+        if len(overlaid_list) != len(wpy_list):
+            overlaid_list = [0] * len(wpy_list)
+        overlaid_list = [overlaid_list[i] for i in valid_idx]
+
+        center = [float(np.mean(latitudes)), float(np.mean(longitudes))]
         m = folium.Map(location=center, zoom_start=16, control_scale=True)
 
-        # Start marker: green play icon
-        if latitudes and longitudes:
-            folium.Marker(
-                location=[latitudes[0], longitudes[0]],
-                popup="Start",
-                icon=folium.Icon(color="green", icon="play")
-            ).add_to(m)
+        # Helper to add one trajectory
+        # --- inside save_wps_to_map, replace your add_traj_layer with this ---
+        def add_traj_layer(layer_name, lats, lons, yaws_seg, overlaid_seg, color_hex, traj_idx: int):
+            if len(lats) < 2:
+                return
 
-            # End marker: red stop icon
-            folium.Marker(
-                location=[latitudes[-1], longitudes[-1]],
-                popup="End",
-                icon=folium.Icon(color="red", icon="stop")
-            ).add_to(m)
+            fg = folium.FeatureGroup(name=layer_name, show=True)
 
-        # Intermediate waypoints as circle markers with different colors
-        for idx, (lat, lon, yaw) in enumerate(zip(latitudes, longitudes, yaws)):
-            if idx == 0 or idx == len(latitudes) - 1:
-                continue  # Skip start/end
-            overlaid = overlaid_list[idx] if idx < len(overlaid_list) else 0
-            color = 'red' if overlaid else 'green'
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=1,
-                color=color,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.9,
-                popup=f"Yaw: {yaw:.2f}\nOverlaid: {overlaid}"
-            ).add_to(m)
+            # START marker (blue) with numeric ID using BeautifyIcon(number=...)
+            def _add_start_with_number(lat, lon, number_str: str):
+                try:
+                    from folium.plugins import BeautifyIcon
+                    folium.Marker(
+                        location=[lat, lon],
+                        tooltip=f"{layer_name} - Start (#{number_str})",
+                        icon=BeautifyIcon(
+                            icon_shape='marker',
+                            number=number_str,  # <-- use number= (not text=)
+                            border_color='blue',
+                            text_color='blue',
+                            background_color='white'
+                        ),
+                    ).add_to(fg)
+                    return True
+                except Exception as e:
+                    log.warning(f'BeautifyIcon(number=...) failed; falling back. {e}')
+                    return False
 
-        # Polyline for path
-        folium.PolyLine(list(zip(latitudes, longitudes)), color="blue", weight=1, opacity=1).add_to(m)
+            ok = _add_start_with_number(lats[0], lons[0], str(traj_idx + 1))
+            if not ok:
+                # Fallback: simple blue CircleMarker for Start
+                folium.CircleMarker([lats[0], lons[0]],
+                                    radius=5, color="blue", fill=True, fill_color="blue",
+                                    tooltip=f"{layer_name} - Start (#{traj_idx + 1})").add_to(fg)
 
-        map_path = os.path.join(os.path.dirname(__file__), f'../maps/{map_name}')
+            # END marker (orange), no number so we don't risk plugin issues
+            folium.CircleMarker([lats[-1], lons[-1]],
+                                radius=5, color="orange", fill=True, fill_color="orange",
+                                tooltip=f"{layer_name} - End").add_to(fg)
+
+            # Intermediate points: non-overlaid=green, overlaid=red (as requested)
+            for idx in range(1, len(lats) - 1):
+                overlaid = overlaid_seg[idx] if idx < len(overlaid_seg) else 0
+                dot = 'red' if overlaid else 'green'
+                folium.CircleMarker(
+                    location=[lats[idx], lons[idx]],
+                    radius=1,
+                    color=dot, fill=True, fill_color=dot, fill_opacity=0.9,
+                    popup=f"Yaw: {yaws_seg[idx]:.2f} | Overlaid: {overlaid}",
+                ).add_to(fg)
+
+            # Path polyline
+            folium.PolyLine(list(zip(lats, lons)), color=color_hex, weight=1.0, opacity=1).add_to(fg)
+            fg.add_to(m)
+
+        # Build segments (separate or merged)
+        if separate_trajectories and getattr(self, "file_ranges", None):
+            from matplotlib import cm, colors as mcolors
+            num = max(1, len(self.file_ranges))
+            cmap = cm.get_cmap('tab20', num)
+
+            # Map original global indices -> sanitized arrays
+            # We need to translate original [0..len(wpy_list)-1] to sanitized [0..len(latitudes)-1]
+            orig_to_sanitized = {orig_i: k for k, orig_i in enumerate(valid_idx)}
+
+            any_points = False
+            for i, (s, e) in enumerate(self.file_ranges):
+                # translate [s:e] through the valid-index map, keep those that exist
+                idxs = [orig_to_sanitized[j] for j in range(s, e) if j in orig_to_sanitized]
+                if len(idxs) < 2:
+                    continue
+                any_points = True
+                lats_seg = [latitudes[k] for k in idxs]
+                lons_seg = [longitudes[k] for k in idxs]
+                yaws_seg = [yaws[k] for k in idxs]
+                overlaid_seg = [overlaid_list[k] for k in idxs]
+                color_hex = mcolors.to_hex(cmap(i))
+                layer_name = f"Trajectory {i + 1} ({os.path.basename(self.filenames[i])})"
+                add_traj_layer(layer_name, lats_seg, lons_seg, yaws_seg, overlaid_seg, color_hex, traj_idx=i)
+
+            if not any_points:
+                log.warning("No drawable per-file segments after sanitization; falling back to merged view.")
+                add_traj_layer("All trajectories (merged)", latitudes, longitudes, yaws, overlaid_list, "blue",
+                               traj_idx=0)
+            else:
+                folium.LayerControl(collapsed=False, position='bottomright').add_to(m)
+        else:
+            add_traj_layer("All trajectories (merged)", latitudes, longitudes, yaws, overlaid_list, "blue", traj_idx=0)
+
+        # Always fit the map to data bounds so it’s visible even if center/zoom was off
+        try:
+            m.fit_bounds(list(zip(latitudes, longitudes)))
+        except Exception:
+            pass
+
+        maps_dir = os.path.join(os.path.dirname(__file__), '../maps')
+        os.makedirs(maps_dir, exist_ok=True)
+        map_path = os.path.join(maps_dir, map_name)
         m.save(map_path)
         log.info(f'Waypoints map is saved as {map_path}.')
 
@@ -338,7 +447,7 @@ if __name__ == "__main__":
         # Usage 3: save waypoints to map
         # reader.save_wps_to_map(map_name='wabash_upstream_0729.html')
         # reader.save_wps_to_map(map_name='wabash_downstream_0729.html')
-        reader.save_wps_to_map(map_name='wabash_upstream_0910.html')
+        reader.save_wps_to_map(map_name='wabash_upstream_0910.html', separate_trajectories=True)
 
         # Usage 4: Save image with exif meta data
         # reader.save_image_with_exif()
