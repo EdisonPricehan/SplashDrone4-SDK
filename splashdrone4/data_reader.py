@@ -108,10 +108,10 @@ class DataReader:
             if idx == 0 or idx == len(latitudes) - 1:
                 continue  # Skip start/end
             overlaid = overlaid_list[idx] if idx < len(overlaid_list) else 0
-            color = '#1976d2' if overlaid else '#757575'
+            color = 'red' if overlaid else 'green'
             folium.CircleMarker(
                 location=[lat, lon],
-                radius=5,
+                radius=1,
                 color=color,
                 fill=True,
                 fill_color=color,
@@ -120,7 +120,7 @@ class DataReader:
             ).add_to(m)
 
         # Polyline for path
-        folium.PolyLine(list(zip(latitudes, longitudes)), color="blue", weight=2.5, opacity=1).add_to(m)
+        folium.PolyLine(list(zip(latitudes, longitudes)), color="blue", weight=1, opacity=1).add_to(m)
 
         map_path = os.path.join(os.path.dirname(__file__), f'../maps/{map_name}')
         m.save(map_path)
