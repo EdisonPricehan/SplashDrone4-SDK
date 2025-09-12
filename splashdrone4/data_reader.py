@@ -20,6 +20,7 @@ import sys
 import h5py
 import cv2
 import folium
+from branca.element import Element
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -133,6 +134,16 @@ class DataReader:
 
         center = [float(np.mean(latitudes)), float(np.mean(longitudes))]
         m = folium.Map(location=center, zoom_start=16, control_scale=True)
+
+        # Hide default controls (zoom, layers, attribution)
+        css_hide = Element("""
+        <style>
+        .leaflet-control-zoom,
+        .leaflet-control-layers,
+        .leaflet-control-attribution { display: none !important; }
+        </style>
+        """)
+        m.get_root().html.add_child(css_hide)
 
         # Helper to add one trajectory
         # --- inside save_wps_to_map, replace your add_traj_layer with this ---
@@ -492,10 +503,10 @@ if __name__ == "__main__":
         # Usage 3: save waypoints to map
         # reader.save_wps_to_map(map_name='wabash_upstream_0729.html')
         # reader.save_wps_to_map(map_name='wabash_downstream_0729.html')
-        # reader.save_wps_to_map(map_name='wabash_upstream_0910.html', separate_trajectories=True)
+        reader.save_wps_to_map(map_name='wabash_upstream_0910.html', separate_trajectories=True)
 
         # Usage 4: Save image with exif meta data
-        reader.save_image_with_exif(out_dir='../wabash_images_0910', mask_out_dir='../wabash_masks_0910', per_trajectory=True)
+        # reader.save_image_with_exif(out_dir='../wabash_images_0910', mask_out_dir='../wabash_masks_0910', per_trajectory=True)
 
     except KeyboardInterrupt:
         log.warning("Playback interrupted by user.")
