@@ -77,6 +77,32 @@ class DataReader:
 
                 file_lengths.append(count)
 
+        # Post-process known singleton-shaped series like 'overlaid' (bool stored as (N,1))
+        def _scalarize_singletons(seq):
+            out = []
+            for v in seq:
+                try:
+                    if isinstance(v, np.ndarray):
+                        # If it's a single value array, extract the scalar
+                        if v.size == 1:
+                            out.append(v.reshape(-1)[0].item() if hasattr(v.reshape(-1)[0], 'item') else v.reshape(-1)[0])
+                            continue
+                    # generic 1-length containers (e.g., lists/tuples)
+                    if hasattr(v, '__len__') and not isinstance(v, (bytes, bytearray, np.bytes_)):
+                        try:
+                            if len(v) == 1:
+                                out.append(v[0])
+                                continue
+                        except TypeError:
+                            pass
+                except Exception:
+                    pass
+                out.append(v)
+            return out
+
+        if 'overlaid' in data:
+            data['overlaid'] = _scalarize_singletons(data['overlaid'])
+
         # build per-file index ranges over the concatenated arrays
         self.file_lengths = file_lengths
         self.file_ranges = []
@@ -332,6 +358,126 @@ class DataReader:
                 mask_fname = os.path.join(cur_mask_dir, f"{t_str}.png")
                 mask_img.save(mask_fname, "PNG")
 
+    def save_intervention_rate_pdf(
+            self,
+            steps: int = 50,
+            pdf_path: str = '../figures/intervention_rate.pdf',
+            fig_width: float = 7.0,
+            fig_height: float = 2.0,
+            include_overall: bool = True,
+            show: bool = False,
+    ) -> None:
+        """
+        Plot the intervention rate (from the `overlaid` indicator) as a moving average and save as a PDF.
+        No trajectory separation; the plot is compact in height for double-column insertion in papers.
+
+        :param steps: Window length (in steps/frames) for moving average calculation.
+        :param pdf_path: Output path for the PDF figure.
+        :param fig_width: Figure width in inches (use ~7 for double-column width).
+        :param fig_height: Figure height in inches (keep small to be short in height).
+        :param include_overall: If True, draw a dashed horizontal line for overall intervention rate.
+        :param show: If True, display the figure in an interactive window (useful for debugging).
+        :return: None
+        """
+        if 'overlaid' not in self.data:
+            log.warning('No "overlaid" key in data; cannot plot intervention rate.')
+            return
+
+        # Convert to a clean 0/1 numpy array
+        raw = self.data['overlaid']
+        def _to01(v):
+            try:
+                if isinstance(v, (bytes, bytearray, np.bytes_)):
+                    s = v.decode(errors='ignore').strip().lower()
+                    return 1.0 if s in ('1', 'true', 'yes', 'y') else 0.0
+                if isinstance(v, (np.bool_, bool)):
+                    return 1.0 if v else 0.0
+                if isinstance(v, (int, np.integer, float, np.floating)):
+                    return 1.0 if float(v) != 0.0 else 0.0
+                # Fallback to string interpretation
+                s = str(v).strip().lower()
+                return 1.0 if s in ('1', 'true', 'yes', 'y') else 0.0
+            except Exception:
+                return 0.0
+        x = np.array([_to01(v) for v in raw], dtype=float)
+
+        n = len(x)
+        if n == 0:
+            log.warning('Empty "overlaid" array; nothing to plot.')
+            return
+        if steps <= 0:
+            steps = 1
+        steps = min(steps, n)
+
+        # Moving average using convolution (centered window via 'same')
+        kernel = np.ones(steps, dtype=float) / float(steps)
+        ma = np.convolve(x, kernel, mode='same')
+        overall = float(np.mean(x)) if include_overall else None
+
+        # Prepare figure (short height)
+        import matplotlib as mpl
+        mpl.rcParams.update({'pdf.fonttype': 42, 'ps.fonttype': 42})  # embed fonts as TrueType for vector editors
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+        ax.plot(ma, color='tab:red', linewidth=1.5, label=f'MA (window={steps})')
+        if include_overall:
+            ax.hlines(overall, 0, n - 1, colors='tab:blue', linestyles='dashed', linewidth=1.0,
+                      label=f'Overall={overall:.2f}')
+
+        ax.set_xlim(0, n - 1)
+        ax.set_ylim(0, 0.6)
+        # Keep y-axis (spine) on the left, but place tick labels on the right side of that axis (inside plot)
+        ax.set_ylabel('')
+        ax.set_xlabel('')
+        ax.yaxis.set_ticks_position('left')
+        ax.spines['left'].set_visible(True)
+        ax.spines['right'].set_visible(False)
+        # Move tick labels to the inside (right side of the left spine) using a negative pad
+        # Increase the negative padding and shorten tick length to avoid label/tick overlap
+        ax.tick_params(axis='y', which='both', labelleft=True, labelright=False, pad=-18, direction='in', length=2)
+        ax.grid(True, which='both', linestyle='--', linewidth=0.4, alpha=0.6)
+        leg = ax.legend(loc='upper right', fontsize=8, frameon=False)
+        if leg is not None:
+            leg.set_title('Intervention Rate vs Step')
+            try:
+                leg._legend_box.align = 'left'
+            except Exception:
+                pass
+
+        # Slightly lift the lowest y-tick label to avoid overlapping with the x-axis
+        try:
+            import matplotlib.transforms as mtransforms
+            yticks = ax.get_yticks()
+            if len(yticks) > 0:
+                y0 = float(np.min(yticks))
+                for lbl, y in zip(ax.get_yticklabels(), yticks):
+                    if np.isclose(y, y0):
+                        # move label up by 8 points in display coords (increase to avoid x-axis conflict)
+                        offset = mtransforms.ScaledTranslation(0, 8/72.0, fig.dpi_scale_trans)
+                        lbl.set_transform(lbl.get_transform() + offset)
+                        break
+        except Exception:
+            pass
+
+        # Clean look for publication
+        ax.spines['top'].set_visible(False)
+
+        # Ensure output directory exists
+        out_dir = os.path.dirname(pdf_path) or '.'
+        os.makedirs(out_dir, exist_ok=True)
+
+        # Remove all external margins around the figure
+        try:
+            fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        except Exception:
+            pass
+        fig.tight_layout(pad=0.0)
+        fig.savefig(pdf_path, format='pdf', bbox_inches='tight', pad_inches=0)
+        log.info(f'Intervention rate plot saved to {pdf_path}')
+        if show:
+            plt.show()
+        plt.close(fig)
+
     def play(self):
         """
         Play the logged data by displaying images and printing actions.
@@ -503,10 +649,14 @@ if __name__ == "__main__":
         # Usage 3: save waypoints to map
         # reader.save_wps_to_map(map_name='wabash_upstream_0729.html')
         # reader.save_wps_to_map(map_name='wabash_downstream_0729.html')
-        reader.save_wps_to_map(map_name='wabash_upstream_0910.html', separate_trajectories=True)
+        # reader.save_wps_to_map(map_name='wabash_upstream_0910.html', separate_trajectories=True)
 
         # Usage 4: Save image with exif meta data
         # reader.save_image_with_exif(out_dir='../wabash_images_0910', mask_out_dir='../wabash_masks_0910', per_trajectory=True)
+
+        # Usage 5: Save intervention rate plot as PDF
+        reader.save_intervention_rate_pdf(steps=50, pdf_path='../images/wabash_upstream_0910_intervention_rate.pdf',
+                                          fig_width=7.0, fig_height=2.0, include_overall=True, show=False)
 
     except KeyboardInterrupt:
         log.warning("Playback interrupted by user.")
