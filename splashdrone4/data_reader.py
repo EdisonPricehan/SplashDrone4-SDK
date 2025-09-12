@@ -235,16 +235,58 @@ class DataReader:
         m.save(map_path)
         log.info(f'Waypoints map is saved as {map_path}.')
 
-    def save_image_with_exif(self, out_dir='../images_exif', mask_out_dir='../masks') -> None:
+    def save_image_with_exif(self, out_dir='../images_exif', mask_out_dir='../masks', per_trajectory: bool = False, trajectory_key: str = 'trajectory_id', trajectory_name: str | None = None) -> None:
         """
         Save images with EXIF metadata containing GPS coordinates, as well as corresponding masks if available.
 
         :param out_dir: image output directory where images will be saved.
         :param mask_out_dir: mask output directory where masks will be saved.
+        :param per_trajectory: if True, create subfolders per trajectory and place images/masks accordingly.
+        :param trajectory_key: dataset key in self.data that contains trajectory identifiers (per frame). Used when per_trajectory is True and trajectory_name is not provided.
+        :param trajectory_name: optional constant trajectory folder name to use for all frames (overrides trajectory_key when provided).
         :return: None
         """
+        def _sanitize(name: str) -> str:
+            safe = ''.join(c if c.isalnum() or c in ('-', '_', '.') else '_' for c in name)
+            return safe.strip('._') or 'traj'
+
         os.makedirs(out_dir, exist_ok=True)
         os.makedirs(mask_out_dir, exist_ok=True)
+
+        # Helper to compute destination subdirs for a given index
+        def _resolve_subdirs(i: int):
+            if not per_trajectory:
+                return out_dir, mask_out_dir
+            # Determine trajectory label
+            if trajectory_name:
+                traj_label = trajectory_name
+            elif trajectory_key in self.data:
+                val = self.data[trajectory_key][i]
+                if isinstance(val, (bytes, bytearray, np.bytes_)):
+                    traj_label = val.decode(errors='ignore')
+                else:
+                    traj_label = str(val)
+            else:
+                # fallback: try to infer from file_ranges (which file the index belongs to)
+                traj_idx = None
+                for fi, (start, end) in enumerate(self.file_ranges):
+                    if start <= i < end:
+                        traj_idx = fi
+                        break
+                if traj_idx is not None:
+                    base = os.path.splitext(os.path.basename(self.filenames[traj_idx]))[0]
+                    traj_label = base
+                else:
+                    # last resort: prefix of timestamp
+                    t = self.data.get('timestamp', [b'unknown'])[i]
+                    t_str = t.decode() if isinstance(t, (bytes, bytearray, np.bytes_)) else str(t)
+                    traj_label = t_str[:15]
+            traj_label = _sanitize(traj_label)
+            img_dir = os.path.join(out_dir, traj_label)
+            msk_dir = os.path.join(mask_out_dir, traj_label)
+            os.makedirs(img_dir, exist_ok=True)
+            os.makedirs(msk_dir, exist_ok=True)
+            return img_dir, msk_dir
 
         for i, (t, img_rgb, wp) in enumerate(zip(self.data['timestamp'], self.data['image'], self.data['wp_yaw'])):
             lat, lon = wp[:2]
@@ -266,14 +308,17 @@ class DataReader:
             exif_dict = {"GPS": gps_ifd}
             exif_bytes = piexif.dump(exif_dict)
 
-            fname = os.path.join(out_dir, f"{t.decode()}.jpg")
+            cur_out_dir, cur_mask_dir = _resolve_subdirs(i)
+
+            t_str = t.decode() if isinstance(t, (bytes, bytearray, np.bytes_)) else str(t)
+            fname = os.path.join(cur_out_dir, f"{t_str}.jpg")
             img.save(fname, "jpeg", exif=exif_bytes)
 
             # Save corresponding mask if available
             if 'mask' in self.data:
                 mask = self.data['mask'][i]
                 mask_img = Image.fromarray(mask)
-                mask_fname = os.path.join(mask_out_dir, f"{t.decode()}.png")
+                mask_fname = os.path.join(cur_mask_dir, f"{t_str}.png")
                 mask_img.save(mask_fname, "PNG")
 
     def play(self):
@@ -447,10 +492,10 @@ if __name__ == "__main__":
         # Usage 3: save waypoints to map
         # reader.save_wps_to_map(map_name='wabash_upstream_0729.html')
         # reader.save_wps_to_map(map_name='wabash_downstream_0729.html')
-        reader.save_wps_to_map(map_name='wabash_upstream_0910.html', separate_trajectories=True)
+        # reader.save_wps_to_map(map_name='wabash_upstream_0910.html', separate_trajectories=True)
 
         # Usage 4: Save image with exif meta data
-        # reader.save_image_with_exif()
+        reader.save_image_with_exif(out_dir='../wabash_images_0910', mask_out_dir='../wabash_masks_0910', per_trajectory=True)
 
     except KeyboardInterrupt:
         log.warning("Playback interrupted by user.")
