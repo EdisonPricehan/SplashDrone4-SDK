@@ -194,14 +194,18 @@ class ZmqInterface:
         :param use_camera_offset: Use camera heading if True, otherwise drone heading.
         :return: WayPointWithYaw object containing latitude, longitude, and yaw, or None if fly report is not updated.
         """
-        if self.fly_report.updated:
+        if self.fly_report.updated and self.gimbal_report.updated:
             if not self.drone_heading_init:
                 self.drone_heading = self.fly_report.ATTYaw
                 log.info(f'Drone initial heading: {self.drone_heading}')
                 self.drone_heading_init = True
 
             # Set drone camera yaw compensation
-            cam_yaw_offset = self.camera_yaw_offset if use_camera_heading else 0
+            # cam_yaw_offset = self.camera_yaw_offset if use_camera_heading else 0
+
+            # Set done camera yaw compensation using the current gimbal yaw reading (instead of the set yaw)
+            # Although the yaw control of gimbal camera is not as desired, the gimbal readings (rpy) are accurate
+            cam_yaw_offset = self.gimbal_report.yaw if use_camera_heading else 0
 
             self.waypoint_with_yaw = WayPointWithYaw(
                 lat=self.fly_report.Lat / 1e7,
@@ -209,7 +213,7 @@ class ZmqInterface:
                 yaw=self.drone_heading + cam_yaw_offset if self.use_init_heading else self.fly_report.ATTYaw + cam_yaw_offset
             )
         else:
-            log.debug('Fly report is not updated when getting waypoint with yaw.')
+            log.debug('Fly report or gimbal report is not updated when getting waypoint with yaw.')
         return self.waypoint_with_yaw
 
     def get_altitude(self) -> Optional[float]:
@@ -387,7 +391,7 @@ class ZmqInterface:
             yaw: Optional[float] = None,
     ) -> None:
         """
-        Set the gimbal control angles.
+        Set the gimbal control angles. If an angle is None, it remains unchanged.
         :param roll: The roll angle in degrees, if None, it remains as is.
         :param pitch: The pitch angle in degrees, if None, it remains as is.
         :param yaw: The yaw angle in degrees, if None, it remains as is.
@@ -404,6 +408,38 @@ class ZmqInterface:
                     f"Roll={self.gimbal_control.roll}, "
                     f"Pitch={self.gimbal_control.pitch}, "
                     f"Yaw={self.gimbal_control.yaw}.")
+
+    def gimbal_reached_nadir(self, tol_deg: float = 2) -> bool:
+        """
+        Check if the gimbal has reached the nadir (pitch = 90 degrees).
+        :param tol_deg: Tolerance in degrees to consider as nadir.
+        :return: True if the gimbal pitch is 90 degrees, False otherwise.
+        """
+        self.update_reports()
+        if self.gimbal_report.updated:
+            if abs(self.gimbal_report.pitch - 90) < tol_deg:
+                return True
+            else:
+                return False
+        else:
+            log.debug('Gimbal report is not updated when checking nadir.')
+            return False
+
+    def gimbal_reached_fixed(self, tol_deg: float = 2) -> bool:
+        """
+        Check if the gimbal has reached the fixed pitch angle.
+        :param tol_deg: Tolerance in degrees to consider as reached.
+        :return: True if the gimbal pitch is at the fixed angle, False otherwise.
+        """
+        self.update_reports()
+        if self.gimbal_report.updated:
+            if abs(self.gimbal_report.pitch - self.pitch_angle_fixed) < tol_deg:
+                return True
+            else:
+                return False
+        else:
+            log.debug('Gimbal report is not updated when checking fixed pitch.')
+            return False
 
     def set_camera(self, take_photo: bool = False, start_video: bool = False) -> None:
         """
