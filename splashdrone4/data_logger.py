@@ -60,8 +60,9 @@ class DataLogger:
         Create datasets in the h5 file.
         """
         assert self.h5file is not None, 'H5 file is not created yet.'
-        self.h5file.create_dataset('wp_yaw', (self.data_len, 3), dtype=np.float32)
         self.h5file.create_dataset('timestamp', (self.data_len,), dtype=h5py.string_dtype())
+        self.h5file.create_dataset('wp_yaw', (self.data_len, 3), dtype=np.float32)
+        self.h5file.create_dataset('altitude', (self.data_len,), dtype=np.float32)
         self.h5file.create_dataset('image', (self.data_len, IMG_HEIGHT, IMG_WIDTH, 3), dtype='uint8')
         self.h5file.create_dataset('mask', (self.data_len, IMG_HEIGHT, IMG_WIDTH), dtype='uint8')
         self.h5file.create_dataset('action', (self.data_len, ACTION_DIM), dtype='uint8')
@@ -81,6 +82,7 @@ class DataLogger:
             self,
             timestamp: str,
             wp_yaw: np.ndarray,
+            alt: float,
             image: np.ndarray,
             mask: np.ndarray,
             action: np.ndarray,
@@ -90,6 +92,7 @@ class DataLogger:
         Log data to the file.
         :param timestamp: The timestamp of the data.
         :param wp_yaw: GPS waypoint with yaw.
+        :param alt: The altitude.
         :param image: The image data.
         :param mask: The segmented water mask.
         :param action: The action taken.
@@ -115,6 +118,12 @@ class DataLogger:
             log.error(f'Waypoint with yaw expects 3-tuple (lat, lon, yaw), given dim: {wp_yaw.shape}')
             return
         self.h5file['wp_yaw'][self.index] = wp_yaw
+
+        # Log altitude
+        if not isinstance(alt, (float, int)):
+            log.error(f'Altitude should be a float or int type, given type {type(alt)}')
+            return
+        self.h5file['altitude'][self.index] = float(alt)
 
         # Log image
         if image.shape != (IMG_HEIGHT, IMG_WIDTH, 3):

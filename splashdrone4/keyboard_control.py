@@ -109,18 +109,20 @@ class KeyboardControl:
 
         img = self.get_img(show=True)
         wp_yaw = self.zmq_interface.get_gps_with_yaw(use_camera_heading=True)
+        alt = self.zmq_interface.get_altitude()
         while not acted:  # acted is for internal check of whether a meaningful command has been received
             # Update the most recent image, a blocking call
             img = self.get_img(show=True)
 
             # Update the most recent drone gps and heading (actually is camera heading)
             wp_yaw = self.zmq_interface.get_gps_with_yaw(use_camera_heading=True)
+            alt = self.zmq_interface.get_altitude()
 
             log.debug("Waiting for action input...")
             ep_reset, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
 
-        log.info(f'lat: {wp_yaw.lat}, lon: {wp_yaw.lon}, yaw: {wp_yaw.yaw}')
-        return img, wp_yaw, ep_reset, g2g, overlaid, action_taken
+        log.info(f'lat: {wp_yaw.lat}, lon: {wp_yaw.lon}, alt: {alt}, yaw: {wp_yaw.yaw}')
+        return img, wp_yaw, alt, ep_reset, g2g, overlaid, action_taken
 
     def _keyboard_act(self, action_policy: Optional[List[int]] = None):
         # Update fly reports
@@ -186,6 +188,7 @@ class KeyboardControl:
     def log_data(
             self,
             wp_yaw: Optional[WayPointWithYaw] = None,
+            alt: Optional[float] = None,
             image: Optional[np.ndarray] = None,
             mask: Optional[np.ndarray] = None,
             action: Optional[np.ndarray] = None,
@@ -195,6 +198,7 @@ class KeyboardControl:
             self.data_logger.log_data(
                 timestamp=datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
                 wp_yaw=np.zeros((3,)) if wp_yaw is None else np.array([wp_yaw.lat, wp_yaw.lon, wp_yaw.yaw]),
+                alt=0.0 if alt is None else alt,
                 image=self.img if image is None else image,
                 mask=np.zeros((IMG_HEIGHT, IMG_WIDTH)) if mask is None else mask,
                 action=np.ones(ACTION_DIM) if action is None else np.array(action),
@@ -204,12 +208,13 @@ class KeyboardControl:
     def run(self):
         while True:
             # Get control input from keyboard while updating the image
-            img, wp_yaw, ep_reset, g2g, overlaid, action = self.step()
+            img, wp_yaw, alt, ep_reset, g2g, overlaid, action = self.step()
             log.info(f'Action taken: {action}')
 
             # Save data if required
             self.log_data(
                 wp_yaw=wp_yaw,
+                alt=alt,
                 image=img,
                 mask=None,
                 action=np.array(action),

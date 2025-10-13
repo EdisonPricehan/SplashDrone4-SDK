@@ -115,6 +115,7 @@ class ZmqInterface:
         self.mission_waypoints = []  # waypoint as (lat, lon, hover_time), need to specify fly speed and altitude first
         self.img = None  # Current image from drone camera
         self.waypoint_with_yaw = None  # Current gps and yaw of drone
+        self.altitude = None  # Current altitude of drone in meters
         self.camera_yaw_offset = 0.  # yaw change in degrees of drone camera w.r.t. drone heading
 
         # Init image processor
@@ -210,6 +211,17 @@ class ZmqInterface:
         else:
             log.debug('Fly report is not updated when getting waypoint with yaw.')
         return self.waypoint_with_yaw
+
+    def get_altitude(self) -> Optional[float]:
+        """
+        Get the current altitude of the drone in meters.
+        :return: Altitude in meters, or None if fly report is not updated.
+        """
+        if self.fly_report.updated:
+            self.altitude = self.fly_report.Altitude
+        else:
+            log.debug('Fly report is not updated when getting altitude.')
+        return self.altitude
 
     def reset(self):
         """
