@@ -489,6 +489,9 @@ class DataReader:
             if 'image' in self.data:
                 img_bgr = cv2.cvtColor(self.data['image'][i], cv2.COLOR_RGB2BGR)
                 cv2.imshow('Image', img_bgr)
+            if 'image_nadir' in self.data:
+                img_nadir_bgr = cv2.cvtColor(self.data['image_nadir'][i], cv2.COLOR_RGB2BGR)
+                cv2.imshow('Image Nadir', img_nadir_bgr)
             if 'mask' in self.data:
                 cv2.imshow('Mask', self.data['mask'][i])
             timestamp = self.data['timestamp'][i].decode() if 'timestamp' in self.data else None
@@ -640,6 +643,11 @@ if __name__ == "__main__":
         '../data/data_log_20250910_150110.h5',  # battery 4
         '../data/data_log_20250910_152547.h5',  # battery 5
     ]
+
+    # Test h5 with nadir view images saved
+    # data_files = [
+    #     '../data/data_log_20251013_164923.h5'
+    # ]
 
     reader = DataReader(filenames=data_files)
 
