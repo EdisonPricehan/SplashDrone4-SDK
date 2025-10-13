@@ -71,6 +71,9 @@ ros2 launch splashdrone start_all.launch.py
 The GUI will appear, and you can control the drone using the buttons and sliders.
 ![img](images/splashdrone_gui.png)
 
+If you are using Tkinter backend, the GUI will look like below.
+![img](images/splashdrone_gui_tk.png)
+
 
 ## Troubleshooting
 - If encounter runtime error like 'GLIBCXX_3.4.30' not found, it is probably due to the conflict between ROS2 and Miniconda.
