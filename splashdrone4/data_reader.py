@@ -493,9 +493,10 @@ class DataReader:
                 cv2.imshow('Mask', self.data['mask'][i])
             timestamp = self.data['timestamp'][i].decode() if 'timestamp' in self.data else None
             wp_yaw = self.data['wp_yaw'][i] if 'wp_yaw' in self.data else None
+            alt = self.data['altitude'][i] if 'altitude' in self.data else None
             action = self.data['action'][i] if 'action' in self.data else None
             overlaid = self.data['overlaid'][i] if 'overlaid' in self.data else None
-            log.info(f'Timestamp: {timestamp}, Action: {action}, WP-Yaw: {wp_yaw}, Overlaid: {overlaid}')
+            log.info(f'Timestamp: {timestamp}, Action: {action}, WP-Yaw: {wp_yaw}, Altitude: {alt}, Overlaid: {overlaid}')
 
             cv2.waitKey(1000)  # Wait for 1 second
 
