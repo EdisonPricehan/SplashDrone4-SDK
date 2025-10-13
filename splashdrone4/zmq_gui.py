@@ -197,6 +197,6 @@ if __name__ == '__main__':
         ZmqGuiTk().run()
     else:
         # Import PySimpleGUI-based layout only when needed
-        from splashdrone4.gui import *  # noqa: F401,F403
+        from splashdrone4.gui_psg import *  # noqa: F401,F403
         zmq_gui = ZmqGui()
         zmq_gui.run()

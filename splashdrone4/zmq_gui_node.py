@@ -32,7 +32,7 @@ from typing import Optional
 
 # Local packages
 from splashdrone4.definitions import *
-from splashdrone4.gui import *
+from splashdrone4.gui_psg import *
 from splashdrone4.constants import *
 from splashdrone4.image_processor import ImageProcessor
 from splashdrone4.bag_recorder import BagRecorder
