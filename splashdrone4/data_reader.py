@@ -509,10 +509,11 @@ class DataReader:
             video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (int(fig_width), int(fig_height))
         )
 
+        step: int = 0
         for i in tqdm(range(n)):
             img = self.data['image'][i]
             mask = self.data['mask'][i] if 'mask' in self.data else np.zeros_like(img)
-            timestamp = self.data['timestamp'][i].decode() if 'timestamp' in self.data else ''
+            # timestamp = self.data['timestamp'][i].decode() if 'timestamp' in self.data else ''
             action = str(self.data['action'][i]) if 'action' in self.data else ''
             overlaid = str(self.data['overlaid'][i]) if 'overlaid' in self.data else ''
 
@@ -529,11 +530,12 @@ class DataReader:
 
             # Text subplot
             axs[0].axis('off')
-            text = f'Time: {timestamp}\nAction: {action}\nOverlaid: {overlaid}'
+            # text = f'Time: {timestamp}\nAction: {action}\nOverlaid: {overlaid}'
+            text = f'Step: {step}\nAction: {action}\nOverlaid: {overlaid}'
             axs[0].text(0.5, 0.5, text, ha='center', va='center', fontsize=6, wrap=True)
 
             # Image+mask subplot
-            axs[1].imshow(np.hstack((img, mask_rgb)))
+            axs[1].imshow(np.hstack((img, mask_rgb)), interpolation='nearest')
             axs[1].axis('off')
 
             # Render to numpy array using buffer_rgba
@@ -545,8 +547,10 @@ class DataReader:
             plt.close(fig)
 
             # Resize to match video size
-            frame_rgb = cv2.resize(frame_rgb, (int(fig_width), int(fig_height)))
+            # frame_rgb = cv2.resize(frame_rgb, (int(fig_width), int(fig_height)))
             video_writer.write(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+
+            step += 1
 
         video_writer.release()
 
@@ -645,6 +649,7 @@ if __name__ == "__main__":
         # Usage 2: save them as a video
         # reader.save_as_video(video_path='../videos/wabash_uptream_hitl_0729.mp4', fps=1)
         # reader.save_as_video(video_path='../videos/wabash_downstream_hitl_0729.mp4', fps=1)
+        # reader.save_as_video(video_path='../videos/wabash_upstream_hitl_0910_battery5.mp4', fps=1)
 
         # Usage 3: save waypoints to map
         # reader.save_wps_to_map(map_name='wabash_upstream_0729.html')
