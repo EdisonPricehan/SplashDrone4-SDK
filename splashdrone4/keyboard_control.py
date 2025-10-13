@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
+import time
 
 from splashdrone4.zmq_interface import ZmqInterface
 from splashdrone4.key2action import Key2Action
@@ -54,7 +54,7 @@ class KeyboardControl:
         :param debug: Whether check gps signal, skip check if True.
         """
         # Init zmq interface and keyboard reader
-        self.zmq_interface = ZmqInterface(debug=debug)
+        self.zmq_interface = ZmqInterface(debug=debug, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, start_tcp_client=True)
         self.k2a = Key2Action()
 
         # Define constants
@@ -70,10 +70,11 @@ class KeyboardControl:
         # Reset the gimbal to a default position
         self.reset()
 
-    def get_img(self, show: bool = True) -> np.ndarray:
+    def get_img(self, show: bool = True, window_name: str = 'RTSP Image Stream') -> np.ndarray:
         """
         Get the current image from the ZMQ interface.
         :param show: Whether to display the image using OpenCV.
+        :param window_name: The name of the OpenCV window.
         :return: The current image in RGB format.
         """
         self.img = self.zmq_interface.get_img()
@@ -83,7 +84,7 @@ class KeyboardControl:
 
         if show:
             img_bgr = cv2.cvtColor(self.img, cv2.COLOR_RGB2BGR)
-            cv2.imshow('RTSP Image Stream', img_bgr)
+            cv2.imshow(window_name, img_bgr)
             cv2.waitKey(1)
 
         return self.img
@@ -105,24 +106,36 @@ class KeyboardControl:
         if action is not None:
             log.info(f'Agent action received: {action}')
 
-        ep_reset, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
+        ep_reset, pitching_to_nadir, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
 
         img = self.get_img(show=True)
+        img_nadir = None
         wp_yaw = self.zmq_interface.get_gps_with_yaw(use_camera_heading=True)
         alt = self.zmq_interface.get_altitude()
         while not acted:  # acted is for internal check of whether a meaningful command has been received
             # Update the most recent image, a blocking call
             img = self.get_img(show=True)
 
+            # If pitching to nadir view, wait until gimbal reaches nadir position and then back to fixed position
+            if pitching_to_nadir:
+                while not self.zmq_interface.gimbal_reached_nadir(tol_deg=1):
+                    time.sleep(0.1)
+                log.info('Gimbal reached nadir position.')
+                img_nadir = self.get_img(show=True, window_name='Nadir View')
+                self.zmq_interface.set_gimbal(pitch=self.zmq_interface.pitch_angle_fixed)
+                while not self.zmq_interface.gimbal_reached_fixed():
+                    time.sleep(0.1)
+                log.info('Gimbal reached fixed position.')
+
             # Update the most recent drone gps and heading (actually is camera heading)
             wp_yaw = self.zmq_interface.get_gps_with_yaw(use_camera_heading=True)
             alt = self.zmq_interface.get_altitude()
 
             log.debug("Waiting for action input...")
-            ep_reset, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
+            ep_reset, pitching_to_nadir, g2g, acted, overlaid, action_taken = self._keyboard_act(action_policy=action)
 
         log.info(f'lat: {wp_yaw.lat}, lon: {wp_yaw.lon}, alt: {alt}, yaw: {wp_yaw.yaw}')
-        return img, wp_yaw, alt, ep_reset, g2g, overlaid, action_taken
+        return img, img_nadir, wp_yaw, alt, ep_reset, g2g, overlaid, action_taken
 
     def _keyboard_act(self, action_policy: Optional[List[int]] = None):
         # Update fly reports
@@ -133,9 +146,11 @@ class KeyboardControl:
         space = self.k2a.get_space_key()
         good_to_go = self.k2a.get_good_to_go_key()
         reset = self.k2a.get_reset_action()
+        nadir_view = self.k2a.get_nadir_view_key()
         action = self.k2a.get_multi_discrete_action()
 
         reset_episode = False  # Whether the current episode is reset
+        pitching_to_nadir = False  # Whether pitching to nadir view
         if arrow == 'up':  # Take off
             self.zmq_interface.take_off()
         elif arrow == 'down':  # Land
@@ -159,6 +174,9 @@ class KeyboardControl:
         elif reset == 'reset':
             self.zmq_interface.reset()
             reset_episode = True
+        elif nadir_view == 'nadir_view':
+            self.zmq_interface.set_gimbal(pitch=90)
+            pitching_to_nadir = True
 
         g2g = False  # Whether the agent is good to go (for inference)
         acted = True  # Whether a decision was made
@@ -183,13 +201,14 @@ class KeyboardControl:
                 acted = False
                 log.debug("No action taken, please press a key.")
 
-        return reset_episode, g2g, acted, overlaid, action if overlaid else action_policy
+        return reset_episode, pitching_to_nadir, g2g, acted, overlaid, action if overlaid else action_policy
 
     def log_data(
             self,
             wp_yaw: Optional[WayPointWithYaw] = None,
             alt: Optional[float] = None,
             image: Optional[np.ndarray] = None,
+            image_nadir: Optional[np.ndarray] = None,
             mask: Optional[np.ndarray] = None,
             action: Optional[np.ndarray] = None,
             overlaid: bool = False,
@@ -200,6 +219,7 @@ class KeyboardControl:
                 wp_yaw=np.zeros((3,)) if wp_yaw is None else np.array([wp_yaw.lat, wp_yaw.lon, wp_yaw.yaw]),
                 alt=0.0 if alt is None else alt,
                 image=self.img if image is None else image,
+                image_nadir=np.zeros((IMG_HEIGHT, IMG_WIDTH, 3), dtype=np.uint8) if image_nadir is None else image_nadir,
                 mask=np.zeros((IMG_HEIGHT, IMG_WIDTH)) if mask is None else mask,
                 action=np.ones(ACTION_DIM) if action is None else np.array(action),
                 overlaid=overlaid,
@@ -208,7 +228,7 @@ class KeyboardControl:
     def run(self):
         while True:
             # Get control input from keyboard while updating the image
-            img, wp_yaw, alt, ep_reset, g2g, overlaid, action = self.step()
+            img, img_nadir, wp_yaw, alt, ep_reset, g2g, overlaid, action = self.step()
             log.info(f'Action taken: {action}')
 
             # Save data if required
@@ -216,6 +236,7 @@ class KeyboardControl:
                 wp_yaw=wp_yaw,
                 alt=alt,
                 image=img,
+                image_nadir=img_nadir,
                 mask=None,
                 action=np.array(action),
                 overlaid=overlaid,
