@@ -84,3 +84,20 @@ class ImageProcessor:
     def release(self):
         self.fcap.release()
         log.info('Released RTSP stream.')
+
+
+if __name__ == '__main__':
+    # Display image stream
+    ip = ImageProcessor(width=1280, height=720, record_video=True)
+    try:
+        ip.init()
+        while True:
+            img = ip.get_cv_img()
+            if img is not None:
+                img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                cv2.imshow('Image', img_bgr)
+                cv2.waitKey(1)
+    except KeyboardInterrupt:
+        log.warning(f'Video interrupted by user.')
+    finally:
+        ip.release()
