@@ -64,6 +64,7 @@ class DataLogger:
         self.h5file.create_dataset('wp_yaw', (self.data_len, 3), dtype=np.float32)
         self.h5file.create_dataset('altitude', (self.data_len,), dtype=np.float32)
         self.h5file.create_dataset('image', (self.data_len, IMG_HEIGHT, IMG_WIDTH, 3), dtype='uint8')
+        self.h5file.create_dataset('image_nadir', (self.data_len, IMG_HEIGHT, IMG_WIDTH, 3), dtype='uint8')
         self.h5file.create_dataset('mask', (self.data_len, IMG_HEIGHT, IMG_WIDTH), dtype='uint8')
         self.h5file.create_dataset('action', (self.data_len, ACTION_DIM), dtype='uint8')
         self.h5file.create_dataset('overlaid', (self.data_len, 1), dtype=np.bool_)
@@ -84,6 +85,7 @@ class DataLogger:
             wp_yaw: np.ndarray,
             alt: float,
             image: np.ndarray,
+            image_nadir: np.ndarray,
             mask: np.ndarray,
             action: np.ndarray,
             overlaid: bool,
@@ -94,6 +96,7 @@ class DataLogger:
         :param wp_yaw: GPS waypoint with yaw.
         :param alt: The altitude.
         :param image: The image data.
+        :param image_nadir: The nadir view image data.
         :param mask: The segmented water mask.
         :param action: The action taken.
         :param overlaid: Whether RL policy action is overlaid by human.
@@ -131,6 +134,13 @@ class DataLogger:
             return
         self.h5file['image'][self.index] = image
 
+        # Log nadir image
+        if image_nadir.shape != (IMG_HEIGHT, IMG_WIDTH, 3):
+            log.error(f'Nadir image shape {image_nadir.shape} does not match expected shape {(IMG_HEIGHT, IMG_WIDTH, 3)}')
+            return
+        self.h5file['image_nadir'][self.index] = image_nadir
+
+        # Log mask
         if mask.shape != (IMG_HEIGHT, IMG_WIDTH):
             log.error(f'Image shape {mask.shape} does not match expected shape {(IMG_HEIGHT, IMG_WIDTH)}')
             return
