@@ -97,6 +97,17 @@ class Key2Action:
             log.debug(f'Unrecognized key {self.last_key} when getting reset key')
             return None
 
+    def get_nadir_view_key(self) -> Optional[str]:
+        if self.last_key is None:
+            return None
+
+        if self.last_key == 'n':
+            self.last_key = None
+            return 'nadir_view'
+        else:
+            log.debug(f'Unrecognized key {self.last_key} when getting nadir view key')
+            return None
+
     def get_good_to_go_key(self) -> Optional[str]:
         if self.last_key is None:
             return None
