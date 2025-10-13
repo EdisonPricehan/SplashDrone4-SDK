@@ -33,7 +33,9 @@ FORMAT_GIMBAL_REPORT = "3f"  # refer to definition in gimbal.h
 FORMAT_NAV_REPORT = "6BHh2i"  # refer to definition in nav_state_report.h
 FORMAT_ACK = "=BBI"  # refer to definition in fly_state_report.h
 
-IMG_HEIGHT = 128
-IMG_WIDTH = 128
+# IMG_HEIGHT = 128
+# IMG_WIDTH = 128
+IMG_HEIGHT = 720
+IMG_WIDTH = 1280
 ACTION_DIM = 4
 
