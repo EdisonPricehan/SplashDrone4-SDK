@@ -12,6 +12,7 @@ setup(
         "splashdrone4/data_reader.py",
         "splashdrone4/zmq_interface.py",
         "splashdrone4/zmq_gui.py",
+        "splashdrone4/zmq_gui_tk.py",
     ],
     install_requires=[
         "numpy",
@@ -19,11 +20,12 @@ setup(
         "loguru",
         "tqdm",
         "pynput",
-        "PySimpleGUI",
         "pyzmq",
         "utm",
         "h5py",
     ],
+    extras_require={
+        "psg": ["PySimpleGUI"],
+    },
     python_requires=">=3.10",
 )
-

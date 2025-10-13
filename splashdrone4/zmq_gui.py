@@ -17,7 +17,6 @@
 
 
 from splashdrone4.zmq_interface import ZmqInterface
-from splashdrone4.gui import *
 
 from loguru import logger as log
 
@@ -186,5 +185,18 @@ class ZmqGui:
 
 
 if __name__ == '__main__':
-    zmq_gui = ZmqGui()
-    zmq_gui.run()
+    # Optional runtime switch to Tkinter GUI to avoid PySimpleGUI dependency
+    import argparse
+    parser = argparse.ArgumentParser(description='SplashDrone4 ZMQ GUI')
+    parser.add_argument('--gui', choices=['psg', 'tk'], default='tk', help='Select GUI backend: psg (PySimpleGUI) or tk (Tkinter)')
+    args = parser.parse_args()
+
+    if args.gui == 'tk':
+        # Defer import to avoid importing PySimpleGUI if not needed
+        from splashdrone4.zmq_gui_tk import ZmqGuiTk
+        ZmqGuiTk().run()
+    else:
+        # Import PySimpleGUI-based layout only when needed
+        from splashdrone4.gui import *  # noqa: F401,F403
+        zmq_gui = ZmqGui()
+        zmq_gui.run()
