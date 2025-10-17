@@ -41,6 +41,7 @@ class KeyboardControl:
             Up arrow: Take off.
             Down arrow: Land.
             Key r: reset gimbal.
+            Key n: pitch gimbal to nadir view (90 degrees).
             Key w: Increase drone altitude.
             Key s: Decrease drone altitude.
             Key a: Rotate drone camera ccw (top view).
