@@ -171,6 +171,14 @@ class DataReader:
         """)
         m.get_root().html.add_child(css_hide)
 
+        # Determine yaw units (radians vs degrees) from sanitized yaws
+        def _yaw_is_radians(ylist):
+            vals = [abs(v) for v in ylist if np.isfinite(v)]
+            if not vals:
+                return True
+            return max(vals) <= 2 * np.pi * 1.05
+        yaw_in_radians = _yaw_is_radians(yaws)
+
         # Helper to add one trajectory
         # --- inside save_wps_to_map, replace your add_traj_layer with this ---
         def add_traj_layer(layer_name, lats, lons, yaws_seg, overlaid_seg, color_hex, traj_idx: int):
@@ -211,16 +219,60 @@ class DataReader:
                                 radius=5, color="orange", fill=True, fill_color="orange",
                                 tooltip=f"{layer_name} - End").add_to(fg)
 
+            # Helper: add a yaw-oriented elongated arrow at a point using a filled polygon (triangle)
+            def _add_yaw_arrow(lat, lon, yaw_value, color='black', length_m: float = 8.0, base_width_m: float = 4.0):
+                try:
+                    yaw_deg = float(np.degrees(yaw_value) if yaw_in_radians else yaw_value)
+                    if not np.isfinite(yaw_deg):
+                        return
+
+                    # Convert small meter offsets to lat/lon near the given latitude
+                    R = 6378137.0  # Earth radius in meters
+                    lat_rad = np.radians(lat)
+
+                    def _offset_latlon(d_north_m: float, d_east_m: float):
+                        dlat = (d_north_m / R) * (180.0 / np.pi)
+                        dlon = (d_east_m / (R * np.cos(lat_rad))) * (180.0 / np.pi)
+                        return lat + dlat, lon + dlon
+
+                    # Interpret yaw as heading degrees from North, clockwise (common navigation convention)
+                    th = np.radians(yaw_deg)
+                    # Unit vectors in meters: along-heading (north/east components)
+                    u_n = np.cos(th)
+                    u_e = np.sin(th)
+                    # Perpendicular to the left of heading
+                    v_n = -np.sin(th)
+                    v_e =  np.cos(th)
+
+                    # Triangle points: tip ahead, base at the waypoint with given width
+                    tip = _offset_latlon(length_m * u_n, length_m * u_e)
+                    base_left = _offset_latlon(0.5 * base_width_m * v_n, 0.5 * base_width_m * v_e)
+                    base_right = _offset_latlon(-0.5 * base_width_m * v_n, -0.5 * base_width_m * v_e)
+
+                    folium.Polygon(
+                        locations=[tip, base_left, base_right],
+                        color=color,
+                        weight=1,
+                        fill=True,
+                        fill_color=color,
+                        fill_opacity=0.9,
+                    ).add_to(fg)
+                except Exception as e:
+                    log.warning(f"Failed to add yaw arrow polygon: {e}")
+
             # Intermediate points: non-overlaid=green, overlaid=red (as requested)
-            for idx in range(1, len(lats) - 1):
+            for idx in range(0, len(lats)):
                 overlaid = overlaid_seg[idx] if idx < len(overlaid_seg) else 0
                 dot = 'red' if overlaid else 'green'
+                # Keep the dot for visibility
                 folium.CircleMarker(
                     location=[lats[idx], lons[idx]],
                     radius=1,
                     color=dot, fill=True, fill_color=dot, fill_opacity=0.9,
                     popup=f"Yaw: {yaws_seg[idx]:.2f} | Overlaid: {overlaid}",
                 ).add_to(fg)
+                # Add yaw arrow on top (longer and wider to emphasize direction)
+                _add_yaw_arrow(lats[idx], lons[idx], yaws_seg[idx], color='#202020', length_m=2.0, base_width_m=1.0)
 
             # Path polyline
             folium.PolyLine(list(zip(lats, lons)), color=color_hex, weight=1.0, opacity=1).add_to(fg)
@@ -636,12 +688,17 @@ if __name__ == "__main__":
     # ]
 
     # Wabash River upstream 09/10
+    # data_files = [
+    #     '../data/data_log_20250910_143236.h5',  # battery 1
+    #     '../data/data_log_19691231_190334.h5',  # battery 2
+    #     '../data/data_log_20250910_143334.h5',  # battery 3
+    #     '../data/data_log_20250910_150110.h5',  # battery 4
+    #     '../data/data_log_20250910_152547.h5',  # battery 5
+    # ]
+
     data_files = [
-        '../data/data_log_20250910_143236.h5',  # battery 1
-        '../data/data_log_19691231_190334.h5',  # battery 2
-        '../data/data_log_20250910_143334.h5',  # battery 3
-        '../data/data_log_20250910_150110.h5',  # battery 4
-        '../data/data_log_20250910_152547.h5',  # battery 5
+        '../data/data_log_20251017_163715.h5',
+        '../data/data_log_20251017_163956.h5',
     ]
 
     # Test h5 with nadir view images saved
@@ -664,13 +721,15 @@ if __name__ == "__main__":
         # reader.save_wps_to_map(map_name='wabash_upstream_0729.html')
         # reader.save_wps_to_map(map_name='wabash_downstream_0729.html')
         # reader.save_wps_to_map(map_name='wabash_upstream_0910.html', separate_trajectories=True)
+        reader.save_wps_to_map(map_name='kepner_1017.html')
 
         # Usage 4: Save image with exif meta data
         # reader.save_image_with_exif(out_dir='../wabash_images_0910', mask_out_dir='../wabash_masks_0910', per_trajectory=True)
+        # reader.save_image_with_exif(out_dir='../kepner_images_1017')
 
         # Usage 5: Save intervention rate plot as PDF
-        reader.save_intervention_rate_pdf(steps=50, pdf_path='../images/wabash_upstream_0910_intervention_rate.pdf',
-                                          fig_width=7.0, fig_height=2.0, include_overall=True, show=False)
+        # reader.save_intervention_rate_pdf(steps=50, pdf_path='../images/wabash_upstream_0910_intervention_rate.pdf',
+        #                                   fig_width=7.0, fig_height=2.0, include_overall=True, show=False)
 
     except KeyboardInterrupt:
         log.warning("Playback interrupted by user.")
